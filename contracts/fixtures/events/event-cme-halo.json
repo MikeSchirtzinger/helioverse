@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "id": "2026-06-04T07:31Z-CME-001",
+  "uuid": "7f3a2b10-9c4e-4d2a-8b1f-2e6a9c0d4f11",
+  "type": "CME",
+  "detected_at": "2026-06-04T07:55Z",
+  "peak_at": null,
+  "liftoff_at": "2026-06-04T07:31Z",
+  "source_region": {
+    "ar_number": 14120,
+    "lon_deg": -12.0,
+    "lat_deg": 18.0,
+    "instrument": "LASCO/C2"
+  },
+  "kinematics": [
+    {
+      "version": 1,
+      "measured_at": "2026-06-04T09:40Z",
+      "speed_kms": 1250.0,
+      "half_angle_deg": 42.0,
+      "direction": { "lon_deg": -10.0, "lat_deg": 15.0 },
+      "cme_type": "O",
+      "measurement_technique": "SWPC_CAT",
+      "is_halo": false,
+      "is_most_accurate": false
+    },
+    {
+      "version": 2,
+      "measured_at": "2026-06-04T13:05Z",
+      "speed_kms": 1350.0,
+      "half_angle_deg": 48.0,
+      "direction": { "lon_deg": -12.0, "lat_deg": 16.0 },
+      "cme_type": "O",
+      "measurement_technique": "LE",
+      "is_halo": true,
+      "is_most_accurate": true
+    }
+  ],
+  "flare": { "class": "X1.2", "xray_peak_wm2": 0.00012 },
+  "thumbnail": {
+    "r2_key": "v1/thumbs/2026-06-04T0731Z-CME-001.jpg",
+    "captured_at": "2026-06-04T07:31Z",
+    "wavelength": "LASCO-C2",
+    "crop": { "x": 512, "y": 384, "w": 256, "h": 256 }
+  },
+  "earth_bound_score": 0.85,
+  "links": [
+    { "id": "2026-06-04T07:18Z-FLR-001", "rel": "caused_by" }
+  ],
+  "predictions": [
+    {
+      "predicted_at": "2026-06-04T13:30Z",
+      "model": "dbm-v1.0",
+      "inputs_as_of": "2026-06-04T13:05Z",
+      "hit_probability": 0.78,
+      "arrival": {
+        "eta": "2026-06-06T04:00Z",
+        "window_start": "2026-06-05T21:00Z",
+        "window_end": "2026-06-06T11:00Z",
+        "window_ci": 0.8
+      },
+      "arrival_speed_kms": { "value": 635.0, "sigma": 90.0 },
+      "peak_kp": { "value": 6.7, "sigma": 1.2 },
+      "min_dst_nt": { "value": -95.0, "sigma": 40.0 },
+      "params": { "gamma_per_km": 2e-8, "ambient_wind_kms": 400.0, "target_r_km": 148800000.0 }
+    }
+  ],
+  "outcome": null,
+  "provenance": {
+    "catalog": "DONKI",
+    "donki_activity_id": "2026-06-04T07:31:00-CME-001",
+    "first_seen_at": "2026-06-04T08:10Z",
+    "as_of": "2026-06-04T13:30Z"
+  }
+}

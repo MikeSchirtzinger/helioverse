@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+  - packages/*
+  # workers/* are Cloudflare Workers — each has its own wrangler.toml
+  # and is not part of the pnpm workspace; they share contracts via
+  # packages/contracts and build independently.

@@ -1,0 +1,11 @@
+# Helioverse Alerts Worker — local dev secrets (EXAMPLE, never commit real values)
+#
+# Copy to `.dev.vars` and fill in placeholder values for local dev.
+# In production, set these in Cloudflare Dashboard → Workers → helio-alerts → Settings → Secrets.
+
+# VAPID (Web Push) — generate with:
+#   openssl ecparam -genkey -name prime256v1 -out vapid_private.pem
+#   openssl ec -in vapid_private.pem -pubout -out vapid_public.pem
+VAPID_SUBJECT=mailto:dev@helioverse.local
+VAPID_PUBLIC_KEY=PLACEHOLDER_VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY=PLACEHOLDER_VAPID_PRIVATE_KEY

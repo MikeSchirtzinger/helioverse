@@ -1,0 +1,192 @@
+{
+  "schema_version": "1.0.0",
+  "vectors": [
+    {
+      "function": "darkness_factor",
+      "tolerance": {
+        "type": "relative",
+        "value": 1e-09
+      },
+      "cases": [
+        {
+          "name": "sun_alt_-25.0",
+          "inputs": {
+            "sun_alt_deg": -25.0
+          },
+          "expect": {
+            "factor": 1.0
+          }
+        },
+        {
+          "name": "sun_alt_-18.0",
+          "inputs": {
+            "sun_alt_deg": -18.0
+          },
+          "expect": {
+            "factor": 1.0
+          }
+        },
+        {
+          "name": "sun_alt_-12.0",
+          "inputs": {
+            "sun_alt_deg": -12.0
+          },
+          "expect": {
+            "factor": 0.5
+          }
+        },
+        {
+          "name": "sun_alt_-6.0",
+          "inputs": {
+            "sun_alt_deg": -6.0
+          },
+          "expect": {
+            "factor": 0.0
+          }
+        },
+        {
+          "name": "sun_alt_0.0",
+          "inputs": {
+            "sun_alt_deg": 0.0
+          },
+          "expect": {
+            "factor": 0.0
+          }
+        },
+        {
+          "name": "sun_alt_10.0",
+          "inputs": {
+            "sun_alt_deg": 10.0
+          },
+          "expect": {
+            "factor": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "function": "go_look",
+      "tolerance": {
+        "type": "relative",
+        "value": 1e-09,
+        "note": "score and confidence relative 1e-9; verdict and dominant_limiter exact"
+      },
+      "cases": [
+        {
+          "name": "storm_night_clear_likely",
+          "inputs": {
+            "oval_visible_prob": 0.65,
+            "sun_alt_deg": -30.0,
+            "moon_alt_deg": -10.0,
+            "moon_illum_frac": 0.2,
+            "cloud_total_consensus": 0.1,
+            "cloud_low_consensus": 0.05,
+            "cloud_model_spread": 0.1,
+            "satellite_clear_now": 0.95
+          },
+          "expect": {
+            "score": 0.612625,
+            "verdict": "Likely",
+            "confidence": 0.9,
+            "dominant_limiter": "Oval"
+          }
+        },
+        {
+          "name": "moonlit_partly_cloudy_possible",
+          "inputs": {
+            "oval_visible_prob": 0.45,
+            "sun_alt_deg": -20.0,
+            "moon_alt_deg": 40.0,
+            "moon_illum_frac": 0.95,
+            "cloud_total_consensus": 0.4,
+            "cloud_low_consensus": 0.25,
+            "cloud_model_spread": 0.2,
+            "satellite_clear_now": 0.7
+          },
+          "expect": {
+            "score": 0.20030029712607036,
+            "verdict": "Possible",
+            "confidence": 0.8,
+            "dominant_limiter": "Oval"
+          }
+        },
+        {
+          "name": "daylight_kills_it",
+          "inputs": {
+            "oval_visible_prob": 0.9,
+            "sun_alt_deg": 5.0,
+            "moon_alt_deg": -5.0,
+            "moon_illum_frac": 0.5,
+            "cloud_total_consensus": 0.0,
+            "cloud_low_consensus": 0.0,
+            "cloud_model_spread": 0.0,
+            "satellite_clear_now": 1.0
+          },
+          "expect": {
+            "score": 0.0,
+            "verdict": "Unlikely",
+            "confidence": 1.0,
+            "dominant_limiter": "Daylight"
+          }
+        },
+        {
+          "name": "satellite_leg_missing_degrades_confidence",
+          "inputs": {
+            "oval_visible_prob": 0.5,
+            "sun_alt_deg": -25.0,
+            "moon_alt_deg": -20.0,
+            "moon_illum_frac": 0.1,
+            "cloud_total_consensus": 0.2,
+            "cloud_low_consensus": 0.1,
+            "cloud_model_spread": 0.15,
+            "satellite_clear_now": null
+          },
+          "expect": {
+            "score": 0.435,
+            "verdict": "Likely",
+            "confidence": 0.7224999999999999,
+            "dominant_limiter": "Oval"
+          }
+        },
+        {
+          "name": "observed_overcast_blocks",
+          "inputs": {
+            "oval_visible_prob": 0.7,
+            "sun_alt_deg": -30.0,
+            "moon_alt_deg": -15.0,
+            "moon_illum_frac": 0.0,
+            "cloud_total_consensus": 0.3,
+            "cloud_low_consensus": 0.2,
+            "cloud_model_spread": 0.6,
+            "satellite_clear_now": 0.05
+          },
+          "expect": {
+            "score": 0.287,
+            "verdict": "Possible",
+            "confidence": 0.4,
+            "dominant_limiter": "CloudObserved"
+          }
+        },
+        {
+          "name": "weak_oval_unlikely",
+          "inputs": {
+            "oval_visible_prob": 0.05,
+            "sun_alt_deg": -30.0,
+            "moon_alt_deg": -15.0,
+            "moon_illum_frac": 0.0,
+            "cloud_total_consensus": 0.0,
+            "cloud_low_consensus": 0.0,
+            "cloud_model_spread": 0.0,
+            "satellite_clear_now": 1.0
+          },
+          "expect": {
+            "score": 0.05,
+            "verdict": "Unlikely",
+            "confidence": 1.0,
+            "dominant_limiter": "Oval"
+          }
+        }
+      ]
+    }
+  ]
+}

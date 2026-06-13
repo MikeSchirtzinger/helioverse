@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "id": "2026-06-04T07:18Z-FLR-001",
+  "uuid": "0b9e6d24-31fc-4a87-b5e0-9d4c2a7f8e15",
+  "type": "FLR",
+  "detected_at": "2026-06-04T07:20Z",
+  "peak_at": "2026-06-04T07:31Z",
+  "liftoff_at": null,
+  "source_region": {
+    "ar_number": 14120,
+    "lon_deg": -12.0,
+    "lat_deg": 18.0,
+    "instrument": "GOES-XRS"
+  },
+  "kinematics": [],
+  "flare": { "class": "X1.2", "xray_peak_wm2": 0.00012 },
+  "thumbnail": null,
+  "earth_bound_score": 0.0,
+  "links": [
+    { "id": "2026-06-04T07:31Z-CME-001", "rel": "causes" }
+  ],
+  "predictions": [],
+  "outcome": null,
+  "provenance": {
+    "catalog": "DONKI",
+    "donki_activity_id": "2026-06-04T07:18:00-FLR-001",
+    "first_seen_at": "2026-06-04T07:26Z",
+    "as_of": "2026-06-04T08:00Z"
+  }
+}

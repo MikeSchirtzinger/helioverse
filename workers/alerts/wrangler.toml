@@ -1,0 +1,12 @@
+# helio-alerts — Cloudflare Worker: Alerts
+name = "helio-alerts"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-01-01"
+
+# D1 database for subscriptions
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "helioverse-alerts"
+# database_id = ""
+
+# account_id = ""

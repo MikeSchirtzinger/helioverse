@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helioverse.contracts/snapshot.schema.json",
+  "title": "Helioverse combined snapshot v1",
+  "description": "The single combined object written by the cron fan-out each tick (one KV write + one R2 object per tick, per spec §4.3). Clients poll this; the WASM go-look engine consumes ONLY scalars/short series found here (spec §4.1 invariant). Units are encoded in field names: _kms = km/s, _nt = nanotesla (GSM frame), _pcc = particles/cm^3, _k = kelvin, _s = seconds, _deg = degrees, _gw = gigawatts, _wm2 = W/m^2. All timestamps are ISO-8601 UTC with trailing Z. FREEZE RULES: additive change = minor version bump; breaking change = major bump + migration note in contracts/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "cadence_s", "clocks", "sources", "solar_wind", "l1_to_earth", "indices", "ovation", "alerts", "events_active"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
+    "generated_at": { "$ref": "#/$defs/iso_utc", "description": "When the cron writer produced this object. This is also the as-of timestamp for the append-only archive copy (leakage discipline, spec §8.5)." },
+    "cadence_s": { "type": "integer", "enum": [60, 300], "description": "Tick cadence: 300 on free tier, 60 on paid (spec §4.3)." },
+    "clocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sun_imagery_at", "l1_measured_at", "model_run_at"],
+      "description": "The three clocks of spec §2, surfaced for the per-layer staleness badges (§7.3).",
+      "properties": {
+        "sun_imagery_at": { "oneOf": [{ "$ref": "#/$defs/iso_utc" }, { "type": "null" }] },
+        "l1_measured_at": { "oneOf": [{ "$ref": "#/$defs/iso_utc" }, { "type": "null" }] },
+        "model_run_at": { "oneOf": [{ "$ref": "#/$defs/iso_utc" }, { "type": "null" }] }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["swpc_plasma", "swpc_mag", "swpc_indices", "ovation", "donki"],
+      "description": "Per-upstream health. Drives staleness badges and the degraded-forecast rule (spec §2.1 fallback).",
+      "properties": {
+        "swpc_plasma": { "$ref": "#/$defs/source_status" },
+        "swpc_mag": { "$ref": "#/$defs/source_status" },
+        "swpc_indices": { "$ref": "#/$defs/source_status" },
+        "ovation": { "$ref": "#/$defs/source_status" },
+        "donki": { "$ref": "#/$defs/source_status" },
+        "goes_csm": { "$ref": "#/$defs/source_status" },
+        "sdo_imagery": { "$ref": "#/$defs/source_status" },
+        "helioviewer": { "$ref": "#/$defs/source_status" }
+      }
+    },
+    "solar_wind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured_at", "spacecraft", "speed_kms", "density_pcc", "temperature_k", "bt_nt", "bx_gsm_nt", "by_gsm_nt", "bz_gsm_nt", "series"],
+      "properties": {
+        "measured_at": { "$ref": "#/$defs/iso_utc" },
+        "spacecraft": { "type": "string", "enum": ["DSCOVR", "ACE", "SOLAR-1", "IMAP"], "description": "Active L1 spacecraft; SWPC auto-switches (spec §3.1). SOLAR-1/IMAP included ahead of the SWPC migration." },
+        "speed_kms": { "oneOf": [{ "type": "number", "minimum": 100, "maximum": 3500 }, { "type": "null" }] },
+        "density_pcc": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] },
+        "temperature_k": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] },
+        "bt_nt": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] },
+        "bx_gsm_nt": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "by_gsm_nt": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "bz_gsm_nt": { "oneOf": [{ "type": "number" }, { "type": "null" }], "description": "First-class signal (spec §1, §6.3). Southward (negative) drives storms and the aurora." },
+        "series": { "$ref": "#/$defs/trailing_series" }
+      }
+    },
+    "l1_to_earth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spacecraft_distance_km", "delay_s", "delay_quality", "arriving_now_measured_at"],
+      "description": "The spec §2.1 real-delay correction, computed server-side for the alert sweep; the client recomputes via helio-core (shared WASM crate) and the two MUST agree to 1s.",
+      "properties": {
+        "spacecraft_distance_km": { "type": "number", "minimum": 1200000, "maximum": 1800000, "description": "From SWPC ephemerides (spec §3.1); L1 halo orbit swings this meaningfully." },
+        "delay_s": { "type": "number", "minimum": 400, "maximum": 9000 },
+        "delay_quality": { "type": "string", "enum": ["measured", "degraded_fixed"], "description": "degraded_fixed = plasma feed stale/gapped -> fixed 1800 s fallback + degraded label (spec §2.1)." },
+        "arriving_now_measured_at": { "$ref": "#/$defs/iso_utc", "description": "l1_measured_at shifted by delay_s: the L1 sample that is hitting Earth approximately now." }
+      }
+    },
+    "indices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kp", "dst_nt", "noaa_scales"],
+      "properties": {
+        "kp": { "$ref": "#/$defs/timed_value" },
+        "kp_forecast": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["valid_at", "value"],
+            "properties": { "valid_at": { "$ref": "#/$defs/iso_utc" }, "value": { "type": "number", "minimum": 0, "maximum": 9 } }
+          }
+        },
+        "dst_nt": { "$ref": "#/$defs/timed_value" },
+        "f107": { "$ref": "#/$defs/timed_value" },
+        "noaa_scales": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["R", "S", "G"],
+          "properties": {
+            "R": { "oneOf": [{ "type": "string", "pattern": "^R[1-5]$" }, { "type": "null" }] },
+            "S": { "oneOf": [{ "type": "string", "pattern": "^S[1-5]$" }, { "type": "null" }] },
+            "G": { "oneOf": [{ "type": "string", "pattern": "^G[1-5]$" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "ovation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_time", "forecast_time", "grid_r2_key"],
+      "description": "OVATION metadata + pointer; the 360x181 grid itself lives in R2 (see r2-layout.md), never inline here.",
+      "properties": {
+        "observation_time": { "$ref": "#/$defs/iso_utc" },
+        "forecast_time": { "$ref": "#/$defs/iso_utc", "description": "NOAA's stock 30-min-ahead stamp. Our re-timing applies delay_s instead (spec §3.2)." },
+        "grid_r2_key": { "type": "string", "pattern": "^v1/ovation/" },
+        "hemispheric_power_gw": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issued_at", "code", "title"],
+        "properties": {
+          "issued_at": { "$ref": "#/$defs/iso_utc" },
+          "code": { "type": "string", "maxLength": 16, "description": "SWPC product code, e.g. WARK04, ALTEF3." },
+          "title": { "type": "string", "maxLength": 200 }
+        }
+      }
+    },
+    "events_active": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/event_id" },
+      "description": "IDs of in-flight (unresolved, Earth-relevant) events; full Event objects live at v1/events/{key}.json in R2."
+    }
+  },
+  "$defs": {
+    "iso_utc": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?Z$" },
+    "event_id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}Z-(CME|FLR|IPS|SEP|GST|FILAMENT)-\\d{3}$" },
+    "source_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "last_success_at", "age_s"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ok", "stale", "gap"] },
+        "last_success_at": { "oneOf": [{ "$ref": "#/$defs/iso_utc" }, { "type": "null" }] },
+        "age_s": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] }
+      }
+    },
+    "timed_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "measured_at"],
+      "properties": {
+        "value": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+        "measured_at": { "oneOf": [{ "$ref": "#/$defs/iso_utc" }, { "type": "null" }] }
+      }
+    },
+    "trailing_series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t_unix", "speed_kms", "bz_gsm_nt", "density_pcc"],
+      "description": "Short trailing window for sparklines and the WASM engine (~2 h). Arrays are index-aligned with t_unix; nulls mark gaps. Max 256 points.",
+      "properties": {
+        "t_unix": { "type": "array", "maxItems": 256, "items": { "type": "integer" } },
+        "speed_kms": { "type": "array", "maxItems": 256, "items": { "oneOf": [{ "type": "number" }, { "type": "null" }] } },
+        "bz_gsm_nt": { "type": "array", "maxItems": 256, "items": { "oneOf": [{ "type": "number" }, { "type": "null" }] } },
+        "density_pcc": { "type": "array", "maxItems": 256, "items": { "oneOf": [{ "type": "number" }, { "type": "null" }] } }
+      }
+    }
+  }
+}

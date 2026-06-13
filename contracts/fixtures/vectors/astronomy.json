@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "vectors": [
+    {
+      "function": "sky_state",
+      "tolerance": {
+        "type": "absolute",
+        "value": {
+          "sun_alt_deg": 0.3,
+          "moon_alt_deg": 0.5,
+          "moon_illum_frac": 0.02
+        },
+        "note": "anchors generated with pyephem, refraction off; any Meeus-class ephemeris must land inside these bands"
+      },
+      "cases": [
+        {
+          "name": "tromso_midnight_sun_jun",
+          "inputs": {
+            "lat_deg": 69.65,
+            "lon_deg": 18.96,
+            "t_unix": 1781222400.0,
+            "iso_utc": "2026-06-12T00:00:00Z"
+          },
+          "expect": {
+            "sun_alt_deg": 3.787,
+            "moon_alt_deg": 8.128,
+            "moon_illum_frac": 0.1428
+          }
+        },
+        {
+          "name": "reykjavik_winter_dark",
+          "inputs": {
+            "lat_deg": 64.13,
+            "lon_deg": -21.9,
+            "t_unix": 1768518000.0,
+            "iso_utc": "2026-01-15T23:00:00Z"
+          },
+          "expect": {
+            "sun_alt_deg": -39.608,
+            "moon_alt_deg": -54.549,
+            "moon_illum_frac": 0.0791
+          }
+        },
+        {
+          "name": "columbus_oh_evening",
+          "inputs": {
+            "lat_deg": 40.0,
+            "lon_deg": -83.0,
+            "t_unix": 1772330400.0,
+            "iso_utc": "2026-03-01T02:00:00Z"
+          },
+          "expect": {
+            "sun_alt_deg": -30.595,
+            "moon_alt_deg": 58.676,
+            "moon_illum_frac": 0.9319
+          }
+        },
+        {
+          "name": "fairbanks_equinox_night",
+          "inputs": {
+            "lat_deg": 64.84,
+            "lon_deg": -147.72,
+            "t_unix": 1774087200.0,
+            "iso_utc": "2026-03-21T10:00:00Z"
+          },
+          "expect": {
+            "sun_alt_deg": -24.844,
+            "moon_alt_deg": -7.419,
+            "moon_illum_frac": 0.0741
+          }
+        }
+      ]
+    }
+  ]
+}

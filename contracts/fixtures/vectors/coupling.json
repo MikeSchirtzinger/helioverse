@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0.0",
+  "vectors": [
+    {
+      "function": "newell_coupling",
+      "tolerance": {
+        "type": "relative",
+        "value": 1e-09
+      },
+      "cases": [
+        {
+          "name": "southward_typical",
+          "inputs": {
+            "v_kms": 400.0,
+            "by_nt": 0.0,
+            "bz_nt": -5.0
+          },
+          "expect": {
+            "coupling": 8617.738760127531
+          }
+        },
+        {
+          "name": "storm_southward_with_by",
+          "inputs": {
+            "v_kms": 700.0,
+            "by_nt": 3.0,
+            "bz_nt": -10.0
+          },
+          "expect": {
+            "coupling": 28857.924865405657
+          }
+        },
+        {
+          "name": "northward_zero_coupling",
+          "inputs": {
+            "v_kms": 400.0,
+            "by_nt": 0.0,
+            "bz_nt": 5.0
+          },
+          "expect": {
+            "coupling": 0.0
+          }
+        },
+        {
+          "name": "pure_by_half_coupling_angle",
+          "inputs": {
+            "v_kms": 500.0,
+            "by_nt": 5.0,
+            "bz_nt": 0.0
+          },
+          "expect": {
+            "coupling": 4605.03937330048
+          }
+        },
+        {
+          "name": "zero_field",
+          "inputs": {
+            "v_kms": 450.0,
+            "by_nt": 0.0,
+            "bz_nt": 0.0
+          },
+          "expect": {
+            "coupling": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "function": "dst_step",
+      "tolerance": {
+        "type": "relative",
+        "value": 1e-09
+      },
+      "cases": [
+        {
+          "name": "quiet_decay_only",
+          "inputs": {
+            "dst_nt": -10.0,
+            "v_kms": 380.0,
+            "bz_nt": 2.0,
+            "density_pcc": 4.0,
+            "dt_s": 300.0
+          },
+          "expect": {
+            "dst_next_nt": -9.9564806388492
+          }
+        },
+        {
+          "name": "storm_main_phase_step",
+          "inputs": {
+            "dst_nt": -50.0,
+            "v_kms": 700.0,
+            "bz_nt": -15.0,
+            "density_pcc": 12.0,
+            "dt_s": 300.0
+          },
+          "expect": {
+            "dst_next_nt": -52.75600331741483
+          }
+        },
+        {
+          "name": "onset_step_1min",
+          "inputs": {
+            "dst_nt": 0.0,
+            "v_kms": 600.0,
+            "bz_nt": -8.0,
+            "density_pcc": 8.0,
+            "dt_s": 60.0
+          },
+          "expect": {
+            "dst_next_nt": -0.31606666666666666
+          }
+        },
+        {
+          "name": "recovery_phase",
+          "inputs": {
+            "dst_nt": -120.0,
+            "v_kms": 450.0,
+            "bz_nt": 1.0,
+            "density_pcc": 5.0,
+            "dt_s": 3600.0
+          },
+          "expect": {
+            "dst_next_nt": -113.73321199428487
+          }
+        }
+      ]
+    },
+    {
+      "function": "kp_to_g",
+      "tolerance": {
+        "type": "exact"
+      },
+      "cases": [
+        {
+          "name": "kp_0.0",
+          "inputs": {
+            "kp": 0.0
+          },
+          "expect": {
+            "g": 0
+          }
+        },
+        {
+          "name": "kp_4.33",
+          "inputs": {
+            "kp": 4.33
+          },
+          "expect": {
+            "g": 0
+          }
+        },
+        {
+          "name": "kp_4.99",
+          "inputs": {
+            "kp": 4.99
+          },
+          "expect": {
+            "g": 0
+          }
+        },
+        {
+          "name": "kp_5.0",
+          "inputs": {
+            "kp": 5.0
+          },
+          "expect": {
+            "g": 1
+          }
+        },
+        {
+          "name": "kp_5.67",
+          "inputs": {
+            "kp": 5.67
+          },
+          "expect": {
+            "g": 1
+          }
+        },
+        {
+          "name": "kp_6.33",
+          "inputs": {
+            "kp": 6.33
+          },
+          "expect": {
+            "g": 2
+          }
+        },
+        {
+          "name": "kp_7.0",
+          "inputs": {
+            "kp": 7.0
+          },
+          "expect": {
+            "g": 3
+          }
+        },
+        {
+          "name": "kp_8.67",
+          "inputs": {
+            "kp": 8.67
+          },
+          "expect": {
+            "g": 4
+          }
+        },
+        {
+          "name": "kp_8.99",
+          "inputs": {
+            "kp": 8.99
+          },
+          "expect": {
+            "g": 4
+          }
+        },
+        {
+          "name": "kp_9.0",
+          "inputs": {
+            "kp": 9.0
+          },
+          "expect": {
+            "g": 5
+          }
+        }
+      ]
+    }
+  ]
+}

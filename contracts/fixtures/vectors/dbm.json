@@ -1,0 +1,234 @@
+{
+  "schema_version": "1.0.0",
+  "vectors": [
+    {
+      "function": "dbm_step",
+      "tolerance": {
+        "type": "relative",
+        "value": 1e-09
+      },
+      "cases": [
+        {
+          "name": "fast_cme_1h",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 1350.0,
+            "gamma_per_km": 2e-08,
+            "ambient_wind_kms": 400.0,
+            "dt_s": 3600.0
+          },
+          "expect": {
+            "r_km": 19705660.112683438,
+            "v_kms": 1289.1800823661551
+          }
+        },
+        {
+          "name": "fast_cme_12h",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 1350.0,
+            "gamma_per_km": 2e-08,
+            "ambient_wind_kms": 400.0,
+            "dt_s": 43200.0
+          },
+          "expect": {
+            "r_km": 62201348.247493744,
+            "v_kms": 921.7486818980667
+          }
+        },
+        {
+          "name": "slow_cme_accelerated_by_wind",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 300.0,
+            "gamma_per_km": 1e-07,
+            "ambient_wind_kms": 450.0,
+            "dt_s": 7200.0
+          },
+          "expect": {
+            "r_km": 17171984.116749078,
+            "v_kms": 314.62093862815885
+          }
+        },
+        {
+          "name": "ballistic_gamma_zero",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 900.0,
+            "gamma_per_km": 0.0,
+            "ambient_wind_kms": 400.0,
+            "dt_s": 3600.0
+          },
+          "expect": {
+            "r_km": 18197550.0,
+            "v_kms": 900.0
+          }
+        },
+        {
+          "name": "zero_dt_identity",
+          "inputs": {
+            "r_km": 20871000.0,
+            "v_kms": 800.0,
+            "gamma_per_km": 5e-08,
+            "ambient_wind_kms": 400.0,
+            "dt_s": 0.0
+          },
+          "expect": {
+            "r_km": 20871000.0,
+            "v_kms": 800.0
+          }
+        }
+      ]
+    },
+    {
+      "function": "dbm_arrival",
+      "tolerance": {
+        "type": "absolute",
+        "value": 2.0,
+        "note": "\u00b12 s on t_arrival_unix; \u00b11e-6 km/s relative on v_arrival_kms; transit_hours_approx is informational"
+      },
+      "cases": [
+        {
+          "name": "fast_halo_to_1au",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 1350.0,
+            "t_unix": 0.0,
+            "gamma_per_km": 2e-08,
+            "ambient_wind_kms": 400.0,
+            "target_r_km": 148800000.0
+          },
+          "expect": {
+            "t_arrival_unix": 160047.48916625977,
+            "v_arrival_kms": 635.0960084764264,
+            "transit_hours_approx": 44.46
+          }
+        },
+        {
+          "name": "moderate_cme_to_1au",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 600.0,
+            "t_unix": 0.0,
+            "gamma_per_km": 1e-07,
+            "ambient_wind_kms": 380.0,
+            "target_r_km": 148800000.0
+          },
+          "expect": {
+            "t_arrival_unix": 298926.3496398926,
+            "v_arrival_kms": 409.0376154497704,
+            "transit_hours_approx": 83.04
+          }
+        },
+        {
+          "name": "slow_cme_to_1au",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 450.0,
+            "t_unix": 0.0,
+            "gamma_per_km": 5e-08,
+            "ambient_wind_kms": 420.0,
+            "target_r_km": 148800000.0
+          },
+          "expect": {
+            "t_arrival_unix": 300932.93380737305,
+            "v_arrival_kms": 440.6697067570116,
+            "transit_hours_approx": 83.59
+          }
+        },
+        {
+          "name": "unreachable_in_30d_err",
+          "inputs": {
+            "r_km": 14957550.0,
+            "v_kms": 40.0,
+            "t_unix": 0.0,
+            "gamma_per_km": 0.0,
+            "ambient_wind_kms": 40.0,
+            "target_r_km": 148800000.0
+          },
+          "expect": {
+            "error": "OutOfRange"
+          }
+        }
+      ]
+    },
+    {
+      "function": "cone_contains_earth",
+      "tolerance": {
+        "type": "exact"
+      },
+      "cases": [
+        {
+          "name": "dead_center_hit",
+          "inputs": {
+            "apex_lon_deg": 0.0,
+            "apex_lat_deg": 0.0,
+            "half_angle_deg": 30.0,
+            "earth_helio_lon_deg": 0.0,
+            "earth_helio_lat_deg": 0.0,
+            "parker_offset_deg": 0.0
+          },
+          "expect": {
+            "contains": true
+          }
+        },
+        {
+          "name": "flank_hit_with_parker",
+          "inputs": {
+            "apex_lon_deg": -50.0,
+            "apex_lat_deg": 5.0,
+            "half_angle_deg": 45.0,
+            "earth_helio_lon_deg": 0.0,
+            "earth_helio_lat_deg": 7.2,
+            "parker_offset_deg": 10.0
+          },
+          "expect": {
+            "contains": true
+          }
+        },
+        {
+          "name": "near_miss_east_limb",
+          "inputs": {
+            "apex_lon_deg": -75.0,
+            "apex_lat_deg": 0.0,
+            "half_angle_deg": 35.0,
+            "earth_helio_lon_deg": 0.0,
+            "earth_helio_lat_deg": 7.2,
+            "parker_offset_deg": 10.0
+          },
+          "expect": {
+            "contains": false
+          }
+        },
+        {
+          "name": "backside_miss",
+          "inputs": {
+            "apex_lon_deg": 170.0,
+            "apex_lat_deg": 10.0,
+            "half_angle_deg": 60.0,
+            "earth_helio_lon_deg": 0.0,
+            "earth_helio_lat_deg": 0.0,
+            "parker_offset_deg": 10.0
+          },
+          "expect": {
+            "contains": false
+          }
+        },
+        {
+          "name": "boundary_exact_half_angle",
+          "inputs": {
+            "apex_lon_deg": 30.0,
+            "apex_lat_deg": 0.0,
+            "half_angle_deg": 30.0,
+            "earth_helio_lon_deg": 0.0,
+            "earth_helio_lat_deg": 0.0,
+            "parker_offset_deg": 0.0
+          },
+          "expect": {
+            "contains": true
+          }
+        }
+      ]
+    }
+  ]
+}

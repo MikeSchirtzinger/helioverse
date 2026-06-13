@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-06-12T08:05:00Z",
+  "cadence_s": 300,
+  "clocks": {
+    "sun_imagery_at": "2026-06-12T07:49:00Z",
+    "l1_measured_at": "2026-06-12T08:04:00Z",
+    "model_run_at": "2026-06-12T06:00:00Z"
+  },
+  "sources": {
+    "swpc_plasma": { "status": "ok", "last_success_at": "2026-06-12T08:04:30Z", "age_s": 30 },
+    "swpc_mag": { "status": "ok", "last_success_at": "2026-06-12T08:04:30Z", "age_s": 30 },
+    "swpc_indices": { "status": "ok", "last_success_at": "2026-06-12T08:00:10Z", "age_s": 290 },
+    "ovation": { "status": "ok", "last_success_at": "2026-06-12T08:01:00Z", "age_s": 240 },
+    "donki": { "status": "ok", "last_success_at": "2026-06-12T07:50:00Z", "age_s": 900 },
+    "goes_csm": { "status": "ok", "last_success_at": "2026-06-12T07:55:00Z", "age_s": 600 },
+    "sdo_imagery": { "status": "ok", "last_success_at": "2026-06-12T07:49:00Z", "age_s": 960 }
+  },
+  "solar_wind": {
+    "measured_at": "2026-06-12T08:04:00Z",
+    "spacecraft": "DSCOVR",
+    "speed_kms": 380.0,
+    "density_pcc": 4.2,
+    "temperature_k": 85000,
+    "bt_nt": 5.1,
+    "bx_gsm_nt": 1.2,
+    "by_gsm_nt": -2.0,
+    "bz_gsm_nt": 2.1,
+    "series": {
+      "t_unix": [1781249040, 1781249340, 1781249640, 1781249940, 1781250240, 1781250540],
+      "speed_kms": [376.0, 377.5, 379.0, 378.2, 381.0, 380.0],
+      "bz_gsm_nt": [1.8, 2.4, 2.0, 1.5, 2.3, 2.1],
+      "density_pcc": [4.0, 4.1, 4.3, 4.2, 4.1, 4.2]
+    }
+  },
+  "l1_to_earth": {
+    "spacecraft_distance_km": 1480000,
+    "delay_s": 3894.7,
+    "delay_quality": "measured",
+    "arriving_now_measured_at": "2026-06-12T09:08:55Z"
+  },
+  "indices": {
+    "kp": { "value": 2.33, "measured_at": "2026-06-12T08:00:00Z" },
+    "kp_forecast": [
+      { "valid_at": "2026-06-12T09:00:00Z", "value": 2.33 },
+      { "valid_at": "2026-06-12T12:00:00Z", "value": 2.0 }
+    ],
+    "dst_nt": { "value": -8, "measured_at": "2026-06-12T07:00:00Z" },
+    "f107": { "value": 148.2, "measured_at": "2026-06-11T20:00:00Z" },
+    "noaa_scales": { "R": null, "S": null, "G": null }
+  },
+  "ovation": {
+    "observation_time": "2026-06-12T08:00:00Z",
+    "forecast_time": "2026-06-12T08:30:00Z",
+    "grid_r2_key": "v1/ovation/latest.json",
+    "hemispheric_power_gw": 12.4
+  },
+  "alerts": [],
+  "events_active": []
+}
