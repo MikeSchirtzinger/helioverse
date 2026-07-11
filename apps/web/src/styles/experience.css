@@ -779,8 +779,8 @@
   }
   .hx-chain::-webkit-scrollbar { display: none; }
   .hx-chain::before { display: none; }
-  .hx-chain button { flex: 0 0 auto; min-block-size: 38px; grid-template-columns: auto 1fr; padding: 3px 8px 3px 4px; border-radius: 999px; }
-  .hx-chain button span { inline-size: 28px; block-size: 28px; }
+  .hx-chain button { flex: 0 0 auto; min-block-size: 44px; grid-template-columns: auto 1fr; padding: 3px 8px 3px 4px; border-radius: 999px; }
+  .hx-chain button span { inline-size: 32px; block-size: 32px; }
   .hx-chain button strong { padding-inline-start: 4px; font-size: 9px; }
   .hx-chain button.is-active { background: var(--surface-3); }
 
