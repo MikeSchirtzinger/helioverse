@@ -126,7 +126,7 @@ export async function detectGpuCapabilities(): Promise<GpuDetection> {
 }
 
 // ---------------------------------------------------------------------------
-// Degraded-mode indicators (spec §2.1)
+// Renderer degradation indicators
 // ---------------------------------------------------------------------------
 
 /**

@@ -1,67 +1,60 @@
-# Local Development Setup
+# Local development
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|---|---|---|
-| **Node.js** | ≥ 20 | Frontend, Workers, tooling |
-| **pnpm** | ≥ 9 | Package manager (Corepack: `corepack enable && corepack prepare pnpm@9.15.4 --activate`) |
-| **Rust** | ≥ 1.80 (edition 2021) | helio-core physics crate |
-| **wasm-pack** | latest | Rust→WASM build (`cargo install wasm-pack`) |
-| **Python** | ≥ 3.11 | Contract validation |
-| **uv** | latest | Python runner (`pip install uv` or `brew install uv`) |
+| Tool | Minimum | Purpose |
+| --- | --- | --- |
+| Node.js | 20 | Frontend and tooling |
+| pnpm via Corepack | 9 | Workspace package manager |
+| Rust | 1.80 | Physics core |
+| `wasm-pack` | current | Rust → browser WASM |
+| Python | 3.11 | Contract validation |
+| `uv` | current | Python environment runner |
 
-## One-Time Setup
-
-```bash
-# 1. Clone and enter
-cd ~/dev/helioverse
-
-# 2. Install Node dependencies (fast — mostly TypeScript tooling, no heavy frameworks yet)
-pnpm install
-
-# 3. Verify contracts are green
-uv run contracts/tests/validate.py
-# Expected: CONTRACTS GREEN — all schemas, fixtures, invariants, and vectors agree
-
-# 4. Build the Rust crate (optional; needed for WASM + golden-vector tests)
-cd crates/helio-core && cargo build
-
-# 5. Verify golden vectors (once crate is implemented)
-cd crates/helio-core && cargo test
-```
-
-## Day-to-Day
+## Install and configure
 
 ```bash
-# Contract validation (always green)
-uv run contracts/tests/validate.py
-
-# Type-check all packages (skips if deps not installed)
-pnpm check:types
-
-# Start web dev server
-pnpm dev:web
-
-# Run Rust tests
-pnpm rust:test
-
-# Build WASM (for client import)
-pnpm rust:wasm
+corepack pnpm install
+cp .env.example apps/web/.env.local
 ```
 
-## Secrets
+Set `NASA_DONKI_KEY` in `apps/web/.env.local`. Vite reads it server-side for
+the `/donki` development proxy. Variables without a `VITE_` prefix are not
+exposed to the browser bundle.
 
-No secrets are committed. See `.env.example` and `.dev.vars.example` for the placeholder structure. Copy them to `.env` / `.dev.vars` and fill in values for live deployment. All local tests and fixtures work without secrets.
-
-## Cloudflare Workers (local dev)
-
-Each worker has its own `Cargo.toml` and `wrangler.toml`:
+## Daily commands
 
 ```bash
-cd workers/ingest
-# Edit wrangler.toml with your account_id
-npx wrangler dev
+# Physics contracts, TypeScript, ESLint, and frontend unit tests
+corepack pnpm check:all
+
+# Rust physics unit and golden-vector tests
+corepack pnpm rust:test
+
+# Rebuild WASM and create the production frontend bundle
+corepack pnpm build:web
+
+# Build WASM if needed and launch Vite on port 3000
+corepack pnpm dev:web
 ```
 
-Workers run locally with `wrangler dev` against fixtures, not live upstreams.
+## Local Pages Worker
+
+To test the exact edge routes and security headers used in production:
+
+```bash
+corepack pnpm build:web
+cp apps/web/.dev.vars.example apps/web/.dev.vars
+# Fill NASA_DONKI_KEY in apps/web/.dev.vars.
+
+cd apps/web
+corepack pnpm exec wrangler pages dev dist
+```
+
+The Worker intentionally returns HTTP 503 from DONKI routes when the secret is
+missing. It never falls back to NASA's shared demo key.
+
+## Generated files
+
+`apps/web/src/wasm/`, `apps/web/dist/`, Rust `target/`, Wrangler state, and local
+secret files are ignored. Rebuild them from source rather than committing them.

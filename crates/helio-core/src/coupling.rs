@@ -1,4 +1,4 @@
-//! §6.3 — Newell coupling + Dst ODE + Kp-to-G
+//! Newell coupling, Dst ODE, and Kp-to-G conversion.
 
 /// Newell solar-wind–magnetosphere coupling dΦ_MP/dt (arbitrary units).
 ///
@@ -46,6 +46,7 @@ mod tests {
     #[test]
     fn test_kp_to_g() {
         assert_eq!(kp_to_g(4.0), 0);
-        // Example placeholder — real tests in W1-P2
+        assert_eq!(kp_to_g(5.0), 1);
+        assert_eq!(kp_to_g(9.0), 5);
     }
 }

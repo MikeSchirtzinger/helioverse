@@ -1,4 +1,4 @@
-//! §7.1 — Sky astronomy (client-side; no API calls, ever)
+//! Sky astronomy (client-side; no API calls).
 
 #[derive(Debug, Clone, Copy)]
 pub struct SkyState {

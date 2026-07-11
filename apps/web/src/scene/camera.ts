@@ -10,8 +10,6 @@ import type { CameraState, HelioPoint, ScaleMode, ScaleState } from './types';
 import {
   AU_KM,
   SUN_RADIUS_KM,
-  EARTH_RADIUS_KM,
-  EARTH_MIN_SCENE_RADIUS,
   SUN_COMPRESSED_SCENE_RADIUS,
   COMPRESS_FACTOR,
   COMPRESS_LINEAR_ZONE_KM,
@@ -75,6 +73,8 @@ export function pan(state: CameraState, dx: number, dy: number): CameraState {
   // displacement mapped to the camera's local right/up axes.
   // Here we return the state unchanged because target is in heliographic coords;
   // the three.js controller will convert screen-space pan to heliographic drift.
+  void dx;
+  void dy;
   return state;
 }
 
@@ -125,20 +125,15 @@ export function helioToSceneCartesian(
 }
 
 /**
- * Compute the rendered radius of an object (Sun, Earth) in scene units.
- * Earth is never rendered smaller than EARTH_MIN_SCENE_RADIUS even in
- * compressed scale (spec §7.2: "Earth rendered at ≥ its real radius").
+ * Compute a rendered body radius. In compressed mode every body uses the same
+ * Sun-anchored ratio, so diameters remain proportional to one another even
+ * though heliocentric *distances* use the disclosed logarithmic transform.
  */
 export function objectSceneRadius(trueRadius_km: number, mode: ScaleMode): number {
   if (mode === 'true') {
     return trueRadius_km / AU_KM;
   }
-  // Compressed: Sun uses a fixed visual anchor; Earth gets a floor.
-  if (trueRadius_km >= SUN_RADIUS_KM * 0.5) {
-    return SUN_COMPRESSED_SCENE_RADIUS;
-  }
-  const compressed = compressDistance(trueRadius_km) - compressDistance(0);
-  return Math.max(compressed, EARTH_MIN_SCENE_RADIUS);
+  return SUN_COMPRESSED_SCENE_RADIUS * (trueRadius_km / SUN_RADIUS_KM);
 }
 
 // ---------------------------------------------------------------------------

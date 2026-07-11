@@ -1,9 +1,8 @@
-//! helio-core — the shared Rust→WASM physics + scoring crate (spec §4 stack, §4.2).
+//! helio-core — the shared Rust→WASM physics and scoring contract.
 //!
 //! THIS FILE IS THE CONTRACT, not the implementation. The signatures, units,
 //! constants, and pinned semantics below are FROZEN at v1.0. The crate is
-//! consumed by the browser client (primary) and importable by Workers for the
-//! nightly eval. Implementations MUST reproduce the golden vectors in
+//! consumed by the browser client. Implementations MUST reproduce the golden vectors in
 //! contracts/fixtures/vectors/ to the stated tolerances.
 //!
 //! UNIT CONVENTIONS (everywhere, no exceptions):
@@ -18,9 +17,6 @@
 
 pub const AU_KM: f64 = 1.495978707e8;
 pub const SUN_RADIUS_KM: f64 = 6.957e5;
-/// NOAA-equivalent fixed L1->Earth delay, used ONLY in degraded fallback (spec §2.1).
-pub const FIXED_FALLBACK_DELAY_S: f64 = 1800.0;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoreError {
     /// Input outside the pinned validity range documented on the function.
@@ -28,15 +24,14 @@ pub enum CoreError {
 }
 
 // ===========================================================================
-// §2.1 — the real-delay correction
+// Measured L1→Earth delay
 // ===========================================================================
 
 /// Ballistic L1->Earth delay from the measured bulk speed.
 ///
 /// PINNED: delay_s = spacecraft_earth_distance_km / measured_speed_kms. Exact.
 /// VALIDITY: distance in [1.2e6, 1.8e6] km, speed in [200.0, 3000.0] km/s;
-/// outside either range return Err(OutOfRange) — the CALLER then uses
-/// FIXED_FALLBACK_DELAY_S and sets delay_quality = "degraded_fixed".
+/// outside either range return Err(OutOfRange). Callers surface unavailable.
 /// Vectors: fixtures/vectors/delay-correction.json (tolerance: exact, 1e-9 rel).
 pub fn l1_delay_seconds(
     spacecraft_earth_distance_km: f64,
@@ -44,11 +39,11 @@ pub fn l1_delay_seconds(
 ) -> Result<f64, CoreError>;
 
 // ===========================================================================
-// §6.1 — Drag-Based Model propagation
+// Drag-Based Model propagation
 // ===========================================================================
 
 /// gamma_per_km: drag parameter γ (units 1/km; typical 0.2e-7..2e-7).
-/// ambient_wind_kms: ambient solar-wind speed w. Both are learnable θ (spec §8.5).
+/// ambient_wind_kms: ambient solar-wind speed w. Both may be calibrated.
 #[derive(Debug, Clone, Copy)]
 pub struct DbmParams {
     pub gamma_per_km: f64,
@@ -85,7 +80,7 @@ pub fn dbm_arrival(
 ) -> Result<(f64 /* t_arrival_unix */, f64 /* v_arrival_kms */), CoreError>;
 
 // ===========================================================================
-// §6.3 — Earth-bound geometry & magnetosphere coupling
+// Earth-bound geometry and magnetosphere coupling
 // ===========================================================================
 
 /// Does the CME cone's angular span contain Earth?
@@ -131,7 +126,7 @@ pub fn dst_step(dst_nt: f64, v_kms: f64, bz_nt: f64, density_pcc: f64, dt_s: f64
 pub fn kp_to_g(kp: f64) -> u8;
 
 // ===========================================================================
-// §7.1 — sky astronomy (client-side; no API calls, ever)
+// Sky astronomy (client-side; no API calls)
 // ===========================================================================
 
 #[derive(Debug, Clone, Copy)]
@@ -157,7 +152,7 @@ pub fn sky_state(lat_deg: f64, lon_deg: f64, t_unix: f64) -> SkyState;
 pub fn darkness_factor(sun_alt_deg: f64) -> f64;
 
 // ===========================================================================
-// §7.1 + §4.1 invariant — the "go look" score (scalar inputs ONLY)
+// Local "go look" score (scalar inputs only)
 // ===========================================================================
 
 #[derive(Debug, Clone, Copy)]
@@ -168,7 +163,7 @@ pub struct GoLookInputs {
     pub sun_alt_deg: f64,
     pub moon_alt_deg: f64,
     pub moon_illum_frac: f64,
-    /// Multi-model consensus means, 0..1 (Open-Meteo, spec §3.6).
+    /// Multi-model cloud-cover consensus, 0..1.
     pub cloud_total_consensus: f64,
     /// Low cloud weighted heaviest — it's what actually blocks aurora.
     pub cloud_low_consensus: f64,
@@ -189,7 +184,7 @@ pub struct GoLookScore {
     pub score: f64,
     pub verdict: Verdict,
     pub confidence: f64,
-    /// The factor that most limits tonight — drives "why it might be wrong" (spec §8.6).
+    /// The factor that most limits the local viewing score.
     pub dominant_limiter: Limiter,
 }
 

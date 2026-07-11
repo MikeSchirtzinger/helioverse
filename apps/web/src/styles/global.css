@@ -3,13 +3,105 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* ── Neutral field — a deep, consistently-tinted blue-black. The chrome is
+     kept near-neutral ON PURPOSE so that saturated colour can be reserved for
+     MEANING (the three systems below). A colour on screen always signifies. ── */
+  --field:      oklch(8% 0.022 265);    /* page behind the canvas */
+  --surface:    oklch(15% 0.024 263);   /* default instrument panel */
+  --surface-2:  oklch(19% 0.028 261);   /* raised / active well */
+  --surface-3:  oklch(24% 0.03 259);    /* control inset */
+  --hairline:   oklch(80% 0.02 250 / 0.14);
+  --hairline-2: oklch(80% 0.03 245 / 0.28);
+  --ink:        oklch(96% 0.012 250);   /* primary text */
+  --ink-dim:    oklch(75% 0.022 248);   /* secondary text */
+  --ink-faint:  oklch(58% 0.02 250);    /* tertiary / quiet */
+
+  /* ── Provenance: distance from ground truth. Measured is authoritative, so it
+     needs no hue — it IS the ink. Each step further from direct measurement
+     carries more colour, so the UI visibly flags how derived a value is. ── */
+  --prov-measured:     var(--ink);
+  --prov-modelled:     oklch(72% 0.13 280);   /* indigo — physics-model output */
+  --prov-estimated:    oklch(80% 0.12 78);    /* amber — derived w/ assumptions */
+  --prov-interpolated: oklch(78% 0.09 200);   /* teal — tween between real anchors */
+
+  /* ── Severity: ONE sequential ramp for Kp / NOAA G-scale / flare energy. ── */
+  --sev-quiet:    oklch(80% 0.12 158);
+  --sev-minor:    oklch(84% 0.13 92);
+  --sev-moderate: oklch(76% 0.15 60);
+  --sev-strong:   oklch(70% 0.17 34);
+  --sev-extreme:  oklch(64% 0.19 18);
+
+  /* ── Liveness of a feed. ── */
+  --live:    oklch(81% 0.14 152);
+  --replay:  oklch(84% 0.13 92);
+  --fixture: var(--ink-faint);
+
+  /* ── Type — Archivo (technical grotesque) for UI, IBM Plex Mono for the
+     telemetry numerals only (never as decorative "tech" shorthand). ── */
+  --font-display: 'Saira Variable', 'Saira', ui-sans-serif, system-ui, sans-serif;
+  --font-sans:    'Saira Variable', 'Saira', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --hv-mono: var(--font-mono);
+
+  /* Fluid modular scale (~1.2 ratio). */
+  --text-xs:  clamp(10px, 0.62rem + 0.08vw, 11px);
+  --text-sm:  clamp(11.5px, 0.7rem + 0.1vw, 12.5px);
+  --text-md:  clamp(13px, 0.8rem + 0.14vw, 14px);
+  --text-lg:  clamp(15px, 0.88rem + 0.3vw, 17px);
+  --text-xl:  clamp(19px, 1.05rem + 0.7vw, 24px);
+  --text-2xl: clamp(26px, 1.3rem + 1.5vw, 38px);
+  --tracking-wide:  0.12em;
+  --tracking-wider: 0.24em;
+
+  /* ── Form ── */
+  --hv-radius: 10px;
+  --hv-radius-sm: 7px;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-pill: 999px;
+
+  /* ── Elevation — one considered shadow + a hairline top highlight. ── */
+  --e-1: 0 1px 0 oklch(100% 0 0 / 0.03), 0 8px 24px oklch(0% 0 0 / 0.34);
+  --e-2: 0 1px 0 oklch(100% 0 0 / 0.04), 0 22px 56px oklch(0% 0 0 / 0.46);
+
+  /* ── Motion ── */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --hv-ease-out: var(--ease-out-quint);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+
+  /* ── Legacy aliases → re-pointed at the new system so any surface not yet
+     migrated to semantic tokens still reads as one coherent language. ── */
+  --hv-void: var(--field);
+  --hv-void-2: var(--surface);
+  --hv-panel: oklch(15% 0.024 263 / 0.72);
+  --hv-panel-strong: oklch(19% 0.028 261 / 0.94);
+  --hv-line: var(--hairline-2);
+  --hv-hairline: var(--hairline);
+  --hv-text: var(--ink);
+  --hv-muted: var(--ink-dim);
+  --hv-cyan: var(--prov-interpolated);
+  --hv-gold: var(--replay);
+  --hv-orange: var(--sev-moderate);
+  --hv-aurora: var(--live);
+  --hv-danger: var(--sev-extreme);
+}
+
 html, body, #root {
   width: 100%;
   min-height: 100%;
   margin: 0;
-  background: #050713;
-  color: #e5edff;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -20,336 +112,590 @@ button, input {
   font: inherit;
 }
 
+/* Tabular, slashed-zero numerals everywhere we show telemetry in mono. */
+.hv-mono, [class*='-val'], .hv-detail-cell dd {
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
 #helioverse-app {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.18), transparent 30rem),
-    radial-gradient(circle at 82% 12%, rgba(249, 115, 22, 0.14), transparent 28rem),
-    linear-gradient(180deg, #07101f 0%, #050713 48%, #03040b 100%);
-}
-
-.hv-dashboard {
-  width: min(1680px, 100%);
-  margin: 0 auto;
-  padding: 22px;
-  display: grid;
-  gap: 18px;
-}
-
-.hv-card,
-.hv-dashboard-section,
-.hv-readiness-card {
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(2, 6, 23, 0.9));
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.28);
-}
-
-.hv-section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.hv-section-header h1,
-.hv-readiness-card h2,
-.hv-b3-box h2 {
-  margin: 3px 0 0;
-}
-
-.hv-section-header h1 {
-  font-size: clamp(26px, 4vw, 48px);
-  line-height: 1;
-  letter-spacing: -0.045em;
+    radial-gradient(120% 60% at 50% -8%, oklch(42% 0.06 265 / 0.14), transparent 60%),
+    linear-gradient(180deg, oklch(9% 0.02 265) 0%, oklch(6% 0.018 265) 60%, oklch(4% 0.015 265) 100%);
 }
 
 .hv-eyebrow {
   margin: 0;
-  color: #67e8f9;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
-.hv-pill {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
-  padding: 6px 10px;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.7);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.hv-pill-ready,
-.hv-readiness-card.is-ready {
-  border-color: rgba(34, 197, 94, 0.5);
-}
-
-.hv-pill-ready {
-  color: #bbf7d0;
-  background: rgba(22, 163, 74, 0.14);
-}
-
-.hv-readiness-card.is-degraded {
-  border-color: rgba(251, 191, 36, 0.6);
-}
-
-.hv-status-stack {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.hv-scene-card {
-  padding: 20px;
-  overflow: hidden;
-}
-
-.hv-scene-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.8fr);
-  gap: 18px;
-  align-items: stretch;
-}
-
-.hv-orbit-preview {
-  min-height: 320px;
-  border: 1px solid rgba(125, 211, 252, 0.18);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 16% 50%, rgba(249, 115, 22, 0.16), transparent 16rem),
-    radial-gradient(circle at 88% 50%, rgba(14, 165, 233, 0.12), transparent 13rem),
-    rgba(2, 6, 23, 0.72);
-}
-
-.hv-orbit-svg {
-  display: block;
+.hv-live-canvas,
+.hv-live-canvas__surface {
   width: 100%;
   height: 100%;
-  min-height: 320px;
 }
 
-.hv-parker-line {
-  fill: none;
-  stroke: rgba(125, 211, 252, 0.28);
-  stroke-width: 2;
-  stroke-dasharray: 8 9;
+.hv-live-canvas {
+  position: absolute;
+  inset: 0;
+  min-height: inherit;
+  cursor: grab;
+  touch-action: none;
 }
 
-.hv-parker-line-two {
-  stroke: rgba(192, 132, 252, 0.25);
+.hv-live-canvas:active {
+  cursor: grabbing;
 }
 
-.hv-l1-dot {
-  fill: #bae6fd;
-  stroke: rgba(2, 132, 199, 0.9);
-  stroke-width: 3;
+.hv-live-canvas__surface {
+  display: block;
+  outline: none;
 }
 
-.hv-aurora-ring {
-  fill: none;
-  stroke: #22c55e;
-  stroke-width: 5;
-  stroke-dasharray: 9 7;
-  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.9));
+.hv-live-canvas__surface:focus-visible {
+  box-shadow: inset 0 0 0 3px color-mix(in oklch, var(--hv-gold), transparent 16%);
 }
 
-.hv-magnetopause {
-  fill: none;
-  stroke: rgba(56, 189, 248, 0.82);
-  stroke-width: 3;
+.hv-live-canvas__reticle {
+  position: absolute;
+  inset: 11%;
+  pointer-events: none;
+  border: 1px solid color-mix(in oklch, var(--hv-cyan), transparent 78%);
+  border-radius: 999px;
+  opacity: 0.54;
+  transform: rotate(-14deg) scaleX(1.22);
 }
 
-.hv-svg-label,
-.hv-svg-title {
-  fill: #dbeafe;
-  font-size: 14px;
-  font-weight: 800;
+.hv-live-canvas__reticle::before,
+.hv-live-canvas__reticle::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 42%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--hv-gold), transparent 35%), transparent);
+  transform-origin: left center;
 }
 
-.hv-svg-title {
-  fill: #fde68a;
-  font-size: 17px;
+.hv-live-canvas__reticle::after {
+  transform: rotate(90deg);
 }
 
-.hv-scene-readout {
-  display: grid;
-  gap: 10px;
+/* ----------------------------------------------------------------------------
+   DOM overlay labels (CSS2DRenderer) — clickable, contextual, not in-canvas.
+   ---------------------------------------------------------------------------- */
+
+.hv-label-layer {
+  overflow: visible;
 }
 
-.hv-readout,
-.hv-b3-box,
-.hv-section-callout,
-.hv-hindcast-note {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 16px;
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.62);
+.hv-label {
+  --label-accent: #7fd4ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+  padding: 3px 9px 3px 7px;
+  border: 1px solid color-mix(in oklch, var(--hv-line), transparent 42%);
+  border-radius: 999px;
+  background: oklch(10% 0.02 262 / 0.42);
+  backdrop-filter: blur(7px);
+  color: color-mix(in oklch, var(--hv-text), transparent 6%);
+  font: 600 12px/1 var(--font-display);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  opacity: 0.82;
+  transition: opacity 180ms var(--hv-ease-out), border-color 180ms var(--hv-ease-out),
+    background 180ms var(--hv-ease-out), transform 180ms var(--hv-ease-out);
 }
 
-.hv-readout {
+.hv-label__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--label-accent);
+  box-shadow: 0 0 8px var(--label-accent);
+  flex: none;
+}
+
+/* Measured front readout (replaces the old wireframe "event box"): angular width
+   + modelled leading-edge distance. Mono + dim so it reads as instrument data.
+   Empty by default — only the "Front data" layer fills it, and :not(:empty) keeps
+   the separator out when it's blank. */
+.hv-label__sub {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+}
+.hv-label__sub:not(:empty) {
+  margin-left: 6px;
+  padding-left: 7px;
+  border-left: 1px solid color-mix(in oklch, var(--hv-line), transparent 50%);
+}
+
+/* Anchor bodies sit quietly until hovered. */
+.hv-label--sun,
+.hv-label--earth,
+.hv-label--l1 {
+  opacity: 0.7;
+}
+
+.hv-label--sun:hover,
+.hv-label--earth:hover,
+.hv-label--l1:hover {
+  opacity: 1;
+}
+
+/* The other planets are hidden until the cursor is near them. */
+.hv-label--planet {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hv-label--planet.is-revealed {
+  opacity: 0.78;
+}
+
+/* CME labels are interactive; the selected one is brightened + bordered. */
+.hv-label--cme {
+  cursor: pointer;
+  color: var(--hv-text);
+  border-color: color-mix(in oklch, var(--label-accent), transparent 50%);
+}
+
+.hv-label--cme:hover {
+  opacity: 1;
+  border-color: color-mix(in oklch, var(--label-accent), transparent 20%);
+  background: oklch(12% 0.03 262 / 0.6);
+}
+
+.hv-label--cme.is-selected {
+  opacity: 1;
+  border-color: var(--label-accent);
+  background: oklch(14% 0.04 262 / 0.7);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--label-accent), transparent 60%),
+    0 8px 22px oklch(0% 0 0 / 0.4);
+}
+
+.hv-label--cme:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--label-accent), transparent 30%);
+  outline-offset: 2px;
+}
+
+.hv-impact-overlay {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  bottom: 64px;
   display: grid;
   gap: 3px;
-}
-
-.hv-readout span,
-.hv-clock-list span {
-  color: #94a3b8;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.hv-readout strong {
-  color: #f8fafc;
-  overflow-wrap: anywhere;
-}
-
-.hv-b3-box p,
-.hv-readiness-card p,
-.hv-section-callout p,
-.hv-hindcast-note p {
-  margin: 8px 0;
-  color: #bfcee8;
-  line-height: 1.45;
-}
-
-.hv-mini-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.hv-mini-grid span {
+  max-width: min(360px, calc(100% - 32px));
+  padding: 11px 13px;
+  border: 1px solid color-mix(in oklch, var(--hv-orange), transparent 50%);
   border-radius: 12px;
-  padding: 8px;
-  background: rgba(251, 191, 36, 0.1);
-  color: #fde68a;
-  font-weight: 800;
-  font-size: 12px;
+  background: color-mix(in oklch, var(--hv-panel-strong), transparent 6%);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px oklch(0% 0 0 / 0.3);
 }
 
-.hv-b3-box small {
-  color: #9fb4d5;
-}
-
-.hv-readiness-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.hv-readiness-card {
-  padding: 14px;
-}
-
-.hv-readiness-card h2 {
+.hv-impact-overlay strong {
+  color: var(--hv-text);
   font-size: 15px;
 }
 
-.hv-readiness-card strong {
-  color: #e0f2fe;
-  font-size: 13px;
+.hv-impact-overlay span {
+  color: var(--hv-muted);
+  font-size: 12px;
 }
 
-.hv-clock-list {
-  list-style: none;
+@media (prefers-reduced-motion: no-preference) {
+  .hv-live-canvas__reticle {
+    animation: hv-reticle-drift 12s linear infinite;
+  }
+}
+
+@keyframes hv-reticle-drift {
+  from { transform: rotate(-14deg) scaleX(1.22); }
+  to { transform: rotate(346deg) scaleX(1.22); }
+}
+
+/* ----------------------------------------------------------------------------
+   Canvas time bar (docked master-clock scrubber)
+   ---------------------------------------------------------------------------- */
+
+.hv-canvas-timebar {
+  position: relative;
+  z-index: 4;
   display: grid;
-  gap: 8px;
-  padding: 0;
-  margin: 8px 0 0;
+  gap: 9px;
+  padding: 12px 14px 13px;
+  border-top: 1px solid color-mix(in oklch, var(--hv-cyan), transparent 70%);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--hv-panel-strong), transparent 14%), oklch(7% 0.024 266 / 0.96));
 }
 
-.hv-clock-list li {
-  display: grid;
-  gap: 2px;
-  border-left: 3px solid #22c55e;
-  padding-left: 8px;
-}
-
-.hv-clock-list li.is-degraded {
-  border-left-color: #fbbf24;
-}
-
-.hv-dashboard-section {
-  padding: 0;
-  overflow: hidden;
-}
-
-.hv-metrics-section,
-.hv-timeline-section,
-.hv-detail-section {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
-
-.hv-main-grid {
-  display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(420px, 0.95fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.hv-aurora-section {
-  display: grid;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.hv-section-callout,
-.hv-hindcast-note {
+.hv-tb-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.hv-hindcast-note {
-  margin-top: 10px;
+.hv-tb-play {
+  min-width: 92px;
+  min-height: 38px;
+  border: 1px solid color-mix(in oklch, var(--hv-aurora), transparent 40%);
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: oklch(16% 0.03 150);
+  background: linear-gradient(180deg, var(--hv-aurora), color-mix(in oklch, var(--hv-aurora), black 16%));
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 8px 22px color-mix(in oklch, var(--hv-aurora), transparent 80%);
 }
 
-.hv-section-callout p,
-.hv-hindcast-note p {
-  flex: 1 1 360px;
+.hv-tb-play.is-playing {
+  color: var(--hv-text);
+  background: color-mix(in oklch, var(--hv-void-2), transparent 10%);
+  border-color: color-mix(in oklch, var(--hv-aurora), transparent 30%);
+}
+
+.hv-tb-play:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--hv-aurora), transparent 30%);
+  outline-offset: 2px;
+}
+
+.hv-tb-speeds {
+  display: flex;
+  gap: 5px;
+}
+
+.hv-tb-speeds button {
+  min-height: 32px;
+  border: 1px solid color-mix(in oklch, var(--hv-line), transparent 22%);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--hv-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.hv-tb-speeds button.is-active {
+  color: var(--hv-text);
+  font-weight: 900;
+  border-color: color-mix(in oklch, var(--hv-cyan), transparent 18%);
+  background: color-mix(in oklch, var(--hv-cyan), transparent 66%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--hv-cyan), transparent 55%),
+    0 0 10px color-mix(in oklch, var(--hv-cyan), transparent 62%);
+}
+
+.hv-tb-readout {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--hv-muted);
+  font-family: var(--hv-mono);
+  font-size: 11.5px;
+}
+
+.hv-tb-clock {
+  color: var(--hv-text);
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.hv-tb-speed {
+  color: color-mix(in oklch, var(--hv-gold), white 8%);
+  font-weight: 700;
+}
+
+.hv-tb-speed em {
+  color: var(--hv-muted);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.hv-tb-track {
+  position: relative;
+  padding-top: 18px; /* tick row above the slider */
+}
+
+/* Tall, grabbable master-clock slider. The native 16px input was too thin to
+   hit reliably; this gives a visible 10px track + 20px thumb with a cyan fill
+   showing progress (webkit via --hv-pct, moz via range-progress). */
+.hv-tb-track input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.hv-tb-track input[type='range']:focus-visible {
+  outline: none;
+}
+.hv-tb-track input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--hv-cyan), transparent 60%), 0 2px 8px oklch(0% 0 0 / 0.5);
+}
+.hv-tb-track input[type='range']:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--hv-cyan), transparent 60%), 0 2px 8px oklch(0% 0 0 / 0.5);
+}
+.hv-tb-track input[type='range']::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background:
+    linear-gradient(to right, var(--hv-cyan) 0 var(--hv-pct, 0%), color-mix(in oklch, var(--surface-3), transparent 24%) var(--hv-pct, 0%));
+}
+.hv-tb-track input[type='range']::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background: color-mix(in oklch, var(--surface-3), transparent 24%);
+}
+.hv-tb-track input[type='range']::-moz-range-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--hv-cyan);
+}
+.hv-tb-track input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px; /* (track 10 + 2 border − thumb 20) / 2 */
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--hv-cyan);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.5), 0 0 10px color-mix(in oklch, var(--hv-cyan), transparent 55%);
+  cursor: grab;
+  transition: transform 120ms var(--hv-ease-out);
+}
+.hv-tb-track input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--hv-cyan);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.5);
+  cursor: grab;
+}
+.hv-tb-track input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.12); }
+.hv-tb-track input[type='range']:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.06); }
+.hv-tb-track input[type='range']:active::-moz-range-thumb { cursor: grabbing; }
+
+.hv-tb-ticks {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 14px;
+  pointer-events: none;
+}
+
+.hv-tb-tick {
+  position: absolute;
+  top: 0;
+  width: 9px;
+  height: 12px;
+  margin-left: -4.5px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0.85;
+  background: var(--hv-cyan);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--hv-cyan), transparent 50%);
+}
+
+.hv-tb-tick:hover,
+.hv-tb-tick:focus-visible {
+  opacity: 1;
+  outline: none;
+  transform: scaleY(1.25);
+}
+
+.hv-tb-tick--flare { background: var(--hv-gold); box-shadow: 0 0 8px color-mix(in oklch, var(--hv-gold), transparent 45%); }
+.hv-tb-tick--cme { background: var(--hv-orange); box-shadow: 0 0 8px color-mix(in oklch, var(--hv-orange), transparent 45%); }
+.hv-tb-tick--predicted { background: oklch(70% 0.16 300); box-shadow: 0 0 8px oklch(70% 0.16 300 / 0.5); }
+.hv-tb-tick--actual { background: var(--hv-cyan); }
+.hv-tb-tick--storm { background: var(--hv-danger); box-shadow: 0 0 8px color-mix(in oklch, var(--hv-danger), transparent 45%); }
+.hv-tb-tick--aurora { background: var(--hv-aurora); box-shadow: 0 0 8px color-mix(in oklch, var(--hv-aurora), transparent 45%); }
+
+.hv-tb-caption {
+  margin: 8px 0 0;
+  color: var(--hv-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.hv-tb-caption strong {
+  color: var(--hv-text);
+}
+
+/* Events list + scientific detail panel */
+.hv-events-list {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in oklch, var(--hv-gold), transparent 72%);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in oklch, var(--hv-panel), transparent 10%);
+}
+
+.hv-events-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.hv-event-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--hv-text);
+  background: color-mix(in oklch, var(--hv-void-2), transparent 18%);
+  cursor: pointer;
+  font-size: 12.5px;
+  text-align: left;
+  transition: border-color 150ms var(--hv-ease-out), background 150ms var(--hv-ease-out);
+}
+
+.hv-event-row--cme {
+  margin-left: 16px;
+  background: color-mix(in oklch, var(--hv-void-2), transparent 32%);
+  font-size: 12px;
+}
+
+.hv-event-row:hover,
+.hv-event-row:focus-visible {
+  border-color: color-mix(in oklch, var(--hv-cyan), transparent 40%);
+  outline: none;
+}
+
+.hv-event-row.is-selected {
+  border-color: color-mix(in oklch, var(--hv-gold), transparent 30%);
+  background: color-mix(in oklch, var(--hv-gold), transparent 86%);
+}
+
+.hv-event-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hv-event-name {
+  flex: 1 1 auto;
+  font-weight: 800;
+}
+
+.hv-event-meta {
+  flex: 0 0 auto;
+  color: var(--hv-muted);
+  font-family: var(--hv-mono);
+  font-size: 11px;
+}
+
+.hv-event-detail {
+  display: grid;
+  gap: 9px;
+  border: 1px solid color-mix(in oklch, var(--hv-cyan), transparent 66%);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in oklch, var(--hv-panel-strong), transparent 12%);
+}
+
+.hv-event-detail header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hv-event-detail h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--hv-text);
+}
+
+.hv-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
   margin: 0;
 }
 
-@media (max-width: 1180px) {
-  .hv-scene-layout,
-  .hv-main-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hv-readiness-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.hv-detail-cell {
+  display: grid;
+  gap: 2px;
 }
 
-@media (max-width: 720px) {
-  .hv-dashboard {
-    padding: 12px;
-  }
+.hv-detail-cell dt {
+  color: var(--hv-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
-  .hv-readiness-grid,
-  .hv-mini-grid {
-    grid-template-columns: 1fr;
-  }
+.hv-detail-cell dd {
+  margin: 0;
+  color: var(--hv-text);
+  font-family: var(--hv-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+}
 
-  .hv-section-header h1 {
-    font-size: 30px;
+.hv-detail-note {
+  margin: 0;
+  color: var(--hv-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.hv-detail-link {
+  justify-self: start;
+  border: 1px solid color-mix(in oklch, var(--hv-cyan), transparent 40%);
+  border-radius: 999px;
+  padding: 6px 11px;
+  color: var(--hv-cyan);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hv-detail-link:hover,
+.hv-detail-link:focus-visible {
+  color: var(--hv-text);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-tb-tick,
+  .hv-event-row {
+    transition: none;
   }
 }

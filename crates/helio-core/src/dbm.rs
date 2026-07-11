@@ -1,4 +1,4 @@
-//! §6.1 — Drag-Based Model (DBM) propagation
+//! Drag-Based Model (DBM) propagation.
 //!
 //! Vectors: contracts/fixtures/vectors/dbm.json (tolerances per function).
 

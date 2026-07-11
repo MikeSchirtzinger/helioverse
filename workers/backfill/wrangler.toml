@@ -1,9 +1,0 @@
-# helio-backfill — Cloudflare Worker: History Backfill
-name = "helio-backfill"
-main = "build/worker/shim.mjs"
-compatibility_date = "2025-01-01"
-
-# account_id = ""
-# [[r2_buckets]]
-# binding = "PUBLIC_BUCKET"
-# bucket_name = "helioverse-public"

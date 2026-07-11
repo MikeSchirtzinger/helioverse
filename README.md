@@ -1,70 +1,88 @@
 # Helioverse
 
-**Aurora Forecasting on a Live 3D Heliosphere**
+**A data-grounded journey from the Sun to Earth's aurora.**
 
-Helioverse tracks solar events — flares, CMEs, shocks — and propagates them through a live 3D simulation to answer one question: *can I see the aurora tonight from here?*
+Production: [helioverse.app](https://helioverse.app)
 
-## Quick Start
+Helioverse combines current NOAA and NASA observations with explicitly labelled
+physics models to make the Sun → solar wind → magnetosphere → aurora chain
+understandable. It never substitutes fixtures or decorative values when a live
+source is unavailable.
+
+## Truth model
+
+- **Measured:** current NOAA RTSW, NASA DONKI, GOES, Helioviewer/SDO, GFZ, and
+  OVATION fields.
+- **Modelled:** DBM propagation, WSA–ENLIL outputs, Shue magnetopause, and Newell
+  coupling.
+- **Estimated:** derived quantities whose assumptions are shown.
+- **Interpolated:** visual motion between real anchors, always labelled.
+
+Current observations are withheld when the user scrubs to a historical event.
+See [CLAUDE.md](./CLAUDE.md) for the full scientific and provenance contract.
+
+## Stack
+
+- React 19 + TypeScript + Vite
+- Three.js WebGPU primary renderer with WebGL2 fallback
+- Rust/WASM physics core with golden-vector tests
+- Cloudflare Pages advanced Worker for static assets and bounded NASA,
+  Helioviewer, and GFZ proxy routes
+- Append-only DONKI event/outcome ledger with scheduled offline residual
+  training, chronological holdout backtesting, and a shadow model registry
+
+## Quick start
+
+Requirements: Node 20+, Corepack/pnpm, Rust 1.80+, `wasm-pack`, Python 3.11+,
+and `uv`.
 
 ```bash
-# 1. Install dependencies
-pnpm install
+corepack pnpm install
+cp .env.example apps/web/.env.local
+# Fill NASA_DONKI_KEY in apps/web/.env.local.
 
-# 2. Validate contracts (requires Python + uv)
-uv run contracts/tests/validate.py
-
-# 3. Build the Rust/WASM physics crate
-cd crates/helio-core && cargo build
-
-# 4. Start the web app
-pnpm dev:web
+corepack pnpm check:all
+corepack pnpm rust:test
+corepack pnpm dev:web
 ```
 
-## Repository Layout
+`dev:web` builds the WASM package when needed and starts Vite on port 3000.
+The NASA key is used only by the development proxy; it is never bundled into
+browser JavaScript.
 
-| Directory | Purpose | Wave-1 Owner |
-|---|---|---|
-| `contracts/` | **FROZEN** Wave-0 schemas, fixtures, golden vectors, tests | Do not modify |
-| `apps/web/` | Vite React TS client: 3D scene, aurora, timeline, panels | W1-P3, W1-P5, W1-P6, W1-P8 |
-| `crates/helio-core/` | Rust→WASM physics/scoring crate | W1-P2 |
-| `packages/contracts/` | Read-only TS helpers generated from Wave-0 schemas/fixtures | Bootstrap |
-| `workers/ingest/` | Cloudflare Worker: SWPC/OVATION/DONKI pollers → snapshot writer | W1-P1 |
-| `workers/imagery/` | Cloudflare Worker: Helioviewer ROI thumbnails + imagery cache | W1-P4 |
-| `workers/alerts/` | Cloudflare Worker: Web Push subscriptions + alert sweep | W1-P7 |
-| `workers/backfill/` | Cloudflare Worker: 30-day history backfill tooling | W1-P9 |
-| `specs/` | Orchestration plans | Bootstrap |
-| `docs/` | Agent documentation, setup guides, boundary rules | Bootstrap |
+## Build and deploy
 
-## Agent Rules
-
-1. **Never modify `contracts/**`** unless a task explicitly says so. Contract drift is forbidden.
-2. **Never commit secrets.** Use `.env.example`/`.dev.vars.example` as templates. Live tests skip when keys are absent.
-3. **Validate against contracts, not siblings.** Verify against schemas, golden fixtures, and golden vectors in `contracts/`, not against other packages' implementations.
-4. **Each Wave-1 package owns its directory.** Cross-scope writes are task failure. Coordinate at integration boundaries.
-5. **Wave-1 builders must run `uv run contracts/tests/validate.py`** before reporting done.
-
-## Contract Validation
-
-The green light for all work:
 ```bash
-uv run contracts/tests/validate.py   # exit 0 = contracts green
+corepack pnpm build:web
+cd apps/web
+corepack pnpm exec wrangler pages deploy dist \
+  --project-name helioverse \
+  --branch main
 ```
 
-This validates:
-- All fixtures against JSON Schemas (draft 2020-12)
-- Snapshot cross-invariants (delay math, arriving-now alignment, degraded rule)
-- Event cross-invariants (leakage gate, kinematics versioning)
-- Golden vector re-derivation from the pinned formulas
+The production Pages project stores `NASA_DONKI_KEY` as an encrypted secret.
+`GET https://helioverse.app/api/health` reports whether that binding exists
+without exposing it.
 
-## Package Boundaries
+## Repository layout
 
-See `docs/package-boundaries.md` for detailed ownership, dependency rules, and integration contracts for each Wave-1 package.
+| Path | Purpose |
+| --- | --- |
+| `apps/web/` | Responsive WebGPU experience and Cloudflare Pages Worker |
+| `crates/helio-core/` | Rust/WASM physics implementation |
+| `contracts/` | Executable physics contracts and golden numeric vectors |
+| `learning/` | Versioned exact-link ledger, offline run reports, schemas, and model registry |
+| `scripts/learning/` | Real DONKI collection, ridge-residual training, backtest, and ledger verification |
+| `docs/` | Current setup and future visual design contracts |
 
-## Provisioning (Blocked on Human)
+## Validation boundary
 
-These are documented in `.env.example`:
-- Cloudflare account/domain/R2 public domain (W1-P1, W1-P4, W1-P7, W1-P9)
-- NASA API key for DONKI (W1-P1d)
-- VAPID keypair for Web Push (W1-P7)
+`check:all` validates the physics contracts, TypeScript, ESLint rules, frontend
+unit tests, and the offline-learning ledger/trainer tests. `check:learning`
+additionally proves the public gate counts and production registry entry match
+the persisted ledger. Rust/WASM tests run separately with `pnpm rust:test`.
 
-No live tests require these; all local tests use fixtures from `contracts/fixtures/`.
+The weekly `Refresh learning ledger` workflow runs only with the repository's
+`NASA_DONKI_KEY` secret. The residual learner remains disabled until both exact
+link heads reach 10 outcomes; passing candidates enter shadow status, while
+WSA–ENLIL plus DBM remains production. See [learning/README.md](./learning/README.md).

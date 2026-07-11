@@ -1,0 +1,3 @@
+# Copy to apps/web/.dev.vars for `wrangler pages dev`.
+# Never commit the real value.
+NASA_DONKI_KEY=

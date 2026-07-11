@@ -5,9 +5,6 @@
  * descriptors (SunData, EarthData, L1Data, ParkerGridData). It does NOT
  * mount to the DOM or start a render loop — that's the caller's job.
  *
- * The W2 integration packages (W2-I1, W2-I2) consume this to build the
- * live scene; the W1-P3 story/test helpers use it to verify headless setup.
- *
  * IMPORTANT: this module imports three.js at RUNTIME. The rest of the
  * scene/ modules are pure functions with zero three.js imports.
  */
@@ -216,7 +213,6 @@ export async function createRenderer(
     try {
       // Dynamic import to avoid bundling issues when WebGPU is unavailable
       const { WebGPURenderer: WGPURenderer } = await import('three/webgpu');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const renderer = new WGPURenderer({ canvas, antialias: true });
       await renderer.init();
       return { renderer, isWebGpu: true };

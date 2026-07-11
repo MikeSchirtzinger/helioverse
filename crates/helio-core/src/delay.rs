@@ -1,4 +1,4 @@
-//! §2.1 — Real-delay correction (L1→Earth propagation)
+//! Measured L1→Earth propagation delay.
 
 use crate::error::CoreError;
 

@@ -1,0 +1,24 @@
+{
+  "schema_version": "helioverse.learning-status.v1",
+  "generated_at": "2026-07-11T06:29:34.761Z",
+  "ledger_revision": "7ccea1986ca59267",
+  "ledger": {
+    "events": 176,
+    "outcomes": 7
+  },
+  "gate": {
+    "arrival": 7,
+    "kp": 4,
+    "required": 10,
+    "ready": false
+  },
+  "residual": {
+    "state": "not_trained",
+    "model_id": null,
+    "reason": null
+  },
+  "production": {
+    "model_id": "wsa-enlil-dbm",
+    "label": "WSA–ENLIL + DBM"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helioverse.app/schema/learning/residual-model-v1.json",
+  "title": "Helioverse residual challenger v1",
+  "type": "object",
+  "required": ["schema_version", "model_id", "created_at", "status", "training", "backtest", "heads"],
+  "properties": {
+    "schema_version": { "const": "helioverse.residual-model.v1" },
+    "model_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["registered_challenger", "rejected_backtest"] },
+    "training": { "type": "object" },
+    "backtest": { "type": "object" },
+    "heads": { "type": "object" }
+  },
+  "additionalProperties": false
+}

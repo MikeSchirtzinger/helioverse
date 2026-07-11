@@ -1,5 +1,5 @@
 /**
- * scene/types.ts — Pure TypeScript types for the W1-P3 scene skeleton.
+ * scene/types.ts — Pure TypeScript types for the runtime scene.
  *
  * All types are statically inspectable by tsc -b --noEmit.
  * No runtime imports from three.js — only type-level references
@@ -10,7 +10,7 @@
 // Scale mode
 // ---------------------------------------------------------------------------
 
-/** Scene spatial scale: true (1:1 heliospheric) or compressed (log/power). */
+/** Scene distance scale: linear AU or disclosed logarithmic heliocentric distance. */
 export type ScaleMode = 'true' | 'compressed';
 
 // ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ export interface SunData {
   position: HelioPoint;
   /** Radius in km (contract: SUN_RADIUS_KM = 695 700). */
   radius_km: number;
-  /** Active SDO wavelength label (304/193/HMI) or null if placeholder. */
+  /** Active SDO wavelength label (304/193/HMI) or null when unavailable. */
   activeWavelength: string | null;
 }
 
@@ -67,7 +67,7 @@ export interface EarthData {
 }
 
 export interface L1Data {
-  /** Heliographic position of the L1 spacecraft (DSCOVR/ACE). */
+  /** Heliographic position of the active upstream L1 monitor. */
   position: HelioPoint;
   /** Spacecraft name. */
   spacecraft: string;
@@ -84,7 +84,7 @@ export interface ParkerGridData {
   rotation_period_s: number;
 }
 
-/** An active CME event loaded from contract fixture data. */
+/** A normalized CME event from DONKI or the curated historical replay. */
 export interface CmeEventData {
   /** DONKI-style event ID. */
   id: string;
@@ -98,12 +98,39 @@ export interface CmeEventData {
   isHalo: boolean;
   /** Earth-bound score 0..1. */
   earthBoundScore: number;
+  /**
+   * Ejected mass (kg) — ESTIMATED (DONKI carries no mass; derived from angular
+   * width via the CME mass–width relation). Optional: the live path passes
+   * `DonkiCme.estMass_kg`; historical replay data may carry the same documented
+   * width-derived estimate.
+   * Drives the CME's baseline render size (mass → size).
+   */
+  mass_kg?: number;
   /** Epoch of liftoff (unix seconds). */
   liftoff_unix: number;
+  /**
+   * Measured time the front crossed 21.5 R_sun ≈ 0.1 AU (unix seconds), from
+   * DONKI's `time21_5`. Anchors the near-Sun leg; when absent the propagation
+   * model derives it from the measured launch speed.
+   */
+  time21_5_unix?: number | null;
   /** Current (propagated) front position, or null if not yet computed. */
   frontPosition: HelioPoint | null;
   /** Arrival window (unix seconds), or null if not yet predicted. */
   arrivalWindow: { start: number; eta: number; end: number } | null;
+  /**
+   * WSA-Enlil predicted Kp index (0–9) for this CME's Earth impact. Optional:
+   * present when the DONKI Enlil run has a kp_* field; absent for replay CMEs
+   * or when no Enlil run was made. Used only in labelled model readouts.
+   * PROVENANCE: WSA-Enlil, modelled.
+   */
+  predictedKp?: number | null;
+  /**
+   * WSA-Enlil predicted CME transit duration at Earth (hours). Optional: present
+   * when DONKI has an Enlil run with `estimatedDuration`. Used for band-thickness
+   * in the particle cloud (speed × duration = band depth). PROVENANCE: WSA-Enlil, modelled.
+   */
+  enlilDurationH?: number | null;
 }
 
 // ---------------------------------------------------------------------------

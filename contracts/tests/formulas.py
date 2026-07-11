@@ -12,14 +12,13 @@ import math
 
 AU_KM = 1.495978707e8
 SUN_RADIUS_KM = 6.957e5
-FIXED_FALLBACK_DELAY_S = 1800.0
 
 
 def clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 
-# --- §2.1 delay -------------------------------------------------------------
+# --- L1 delay ----------------------------------------------------------------
 
 def l1_delay_seconds(distance_km, speed_kms):
     """Returns delay in seconds, or None for OutOfRange (caller falls back)."""
@@ -30,7 +29,7 @@ def l1_delay_seconds(distance_km, speed_kms):
     return distance_km / speed_kms
 
 
-# --- §6.1 DBM ---------------------------------------------------------------
+# --- Drag-Based Model --------------------------------------------------------
 
 def dbm_step(r_km, v_kms, gamma_per_km, ambient_wind_kms, dt_s):
     """Closed-form advance under dv/dt = -gamma*(v-w)|v-w|."""
@@ -65,7 +64,7 @@ def dbm_arrival(r0_km, v0_kms, t0_unix, gamma_per_km, ambient_wind_kms, target_r
     return (t0_unix + t, v)
 
 
-# --- §6.3 geometry & coupling -----------------------------------------------
+# --- Geometry and coupling ---------------------------------------------------
 
 def cone_contains_earth(apex_lon, apex_lat, half_angle, earth_lon, earth_lat, parker_offset):
     lam1 = math.radians(apex_lon + parker_offset)
@@ -102,7 +101,7 @@ def kp_to_g(kp):
     return int(kp) - 4
 
 
-# --- §7.1 darkness + go-look ------------------------------------------------
+# --- Darkness and local viewing score ---------------------------------------
 
 def darkness_factor(sun_alt_deg):
     return clamp((-6.0 - sun_alt_deg) / 12.0, 0.0, 1.0)

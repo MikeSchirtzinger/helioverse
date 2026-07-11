@@ -14,6 +14,10 @@ crates/helio-core/target/
 crates/helio-core/pkg/
 *.rs.bk
 
+# Generated WASM glue for the web client — built from crates/helio-core via
+# `pnpm -w build:wasm` (chained into build:web). Reproducible; not committed.
+apps/web/src/wasm/
+
 # Cloudflare
 .wrangler/
 wrangler.*.json
@@ -43,3 +47,7 @@ __pycache__/
 
 # Logs
 *.log
+
+# Agent and visual-verification scratch
+.vlm-critic/
+specs/research/verify/

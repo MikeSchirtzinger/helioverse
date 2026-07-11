@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helioverse.app/schema/learning/prediction-event-v1.json",
+  "title": "Helioverse prediction event v1",
+  "type": "object",
+  "required": ["schema_version", "event_id", "revision", "recorded_at", "measurement", "baseline", "exact_link_ids"],
+  "properties": {
+    "schema_version": { "const": "helioverse.prediction-event.v1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "revision": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "measurement": { "type": "object" },
+    "baseline": { "type": "object" },
+    "exact_link_ids": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

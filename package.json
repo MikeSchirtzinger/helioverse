@@ -9,17 +9,25 @@
   },
   "packageManager": "pnpm@9.15.4",
   "scripts": {
+    "lint": "corepack pnpm check:lint",
+    "test": "corepack pnpm check:test",
     "contracts:validate": "uv run contracts/tests/validate.py",
     "contracts:vectors": "uv run contracts/tests/gen_vectors.py",
     "check:types": "corepack pnpm -r run check:types",
     "check:lint": "corepack pnpm -r run check:lint",
-    "check:test": "corepack pnpm -r run check:test",
+    "check:test": "corepack pnpm -r run check:test && node --test scripts/learning/*.test.mjs",
+    "check:learning": "node scripts/learning/verify.mjs",
     "check:all": "corepack pnpm contracts:validate && corepack pnpm check:types && corepack pnpm check:lint && corepack pnpm check:test",
-    "dev:web": "corepack pnpm --filter @helioverse/web dev",
-    "build:web": "corepack pnpm --filter @helioverse/web build",
+    "learning:collect": "node scripts/learning/collect.mjs",
+    "learning:train": "node scripts/learning/train.mjs",
+    "learning:run": "corepack pnpm learning:collect && corepack pnpm learning:train && corepack pnpm check:learning",
+    "dev:web": "corepack pnpm wasm:ensure && corepack pnpm --filter @helioverse/web dev",
+    "build:web": "corepack pnpm build:wasm && corepack pnpm --filter @helioverse/web build",
+    "build:wasm": "cd crates/helio-core && wasm-pack build --target web --out-dir ../../apps/web/src/wasm/helio-core",
+    "wasm:ensure": "test -f apps/web/src/wasm/helio-core/helio_core.js || corepack pnpm build:wasm",
     "rust:build": "cd crates/helio-core && cargo build",
     "rust:test": "cd crates/helio-core && cargo test",
-    "rust:wasm": "cd crates/helio-core && wasm-pack build --target web",
-    "setup": "echo 'Run: pnpm install && cd crates/helio-core && cargo build'"
+    "rust:wasm": "corepack pnpm build:wasm",
+    "setup": "corepack pnpm install && corepack pnpm build:wasm"
   }
 }

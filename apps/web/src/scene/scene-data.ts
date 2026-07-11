@@ -2,9 +2,8 @@
  * scene/scene-data.ts — Scene object data generators.
  *
  * Pure functions that produce SunData, EarthData, L1Data descriptors
- * from epoch and minimal inputs. These descriptors are the "data" that
- * the W2 integration packages (W2-I1 particles-on-DBM, W2-I2 B3 tie-in)
- * consume to place three.js meshes.
+ * from epoch and minimal inputs. The renderer consumes these descriptors to
+ * place three.js meshes.
  *
  * All positions are heliographic Stonyhurst.
  */
@@ -15,8 +14,6 @@ import {
   EARTH_RADIUS_KM,
   AU_KM,
   L1_EARTH_DISTANCE_KM,
-  SOLAR_SIDEREAL_ROTATION_S,
-  DEFAULT_SOLAR_WIND_SPEED_KMS,
 } from './constants';
 
 // ---------------------------------------------------------------------------
@@ -54,9 +51,6 @@ export function createSunData(activeWavelength: string | null = null): SunData {
  * at that epoch (empirical anchor within ~2°).
  */
 const EPOCH_EARTH_LON_DEG = 100;
-const EARTH_ORBITAL_PERIOD_S = 365.25 * 86400;
-const EARTH_ORBITAL_RATE_DEG_PER_S = 360 / EARTH_ORBITAL_PERIOD_S;
-
 /**
  * Earth heliographic position at the given unix epoch.
  * Earth is always in the ecliptic plane (lat = 0) at ~1 AU.
@@ -104,7 +98,7 @@ export function earthCarringtonLongitude(epoch_unix: number): number {
  * L1 position: on the Sun–Earth line, between them, ~1.5 Mkm from Earth.
  * In heliographic coords: lon=0, lat=0, r = AU_KM − L1_EARTH_DISTANCE_KM.
  */
-export function createL1Data(spacecraft: string = 'DSCOVR'): L1Data {
+export function createL1Data(spacecraft: string = 'L1 monitor'): L1Data {
   return {
     position: {
       lon_deg: 0,
@@ -117,13 +111,13 @@ export function createL1Data(spacecraft: string = 'DSCOVR'): L1Data {
 }
 
 // ---------------------------------------------------------------------------
-// CME event data factory (from contract fixture shapes)
+// CME event data factory (from normalized event shapes)
 // ---------------------------------------------------------------------------
 
 /**
  * Create minimal CME event data from a liftoff descriptor.
  * The frontPosition starts at the source and is updated by the DBM
- * propagator (W1-P2 + W2-I1).
+ * propagator.
  */
 export function createCmeEventData(params: {
   id: string;
@@ -164,6 +158,14 @@ export interface SceneBundle {
   activeEvents: CmeEventData[];
 }
 
+/** Runtime scene foundation shared by live mode and historical replay. */
+export interface SceneFoundation extends SceneBundle {
+  parkerGridDefaults: {
+    speed_kms: number;
+    isDegraded: boolean;
+  };
+}
+
 /**
  * Create the full scene-data bundle for a given epoch.
  * This is the single entry point W2 integration packages call.
@@ -172,7 +174,7 @@ export function createSceneBundle(
   epoch_unix: number,
   activeEvents: CmeEventData[] = [],
   activeWavelength: string | null = null,
-  l1Spacecraft: string = 'DSCOVR',
+  l1Spacecraft: string = 'L1 monitor',
 ): SceneBundle {
   return {
     epoch_unix,

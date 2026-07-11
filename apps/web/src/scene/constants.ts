@@ -15,9 +15,6 @@ export const AU_KM = 1.495978707e8;
 /** Solar radius in km (contract: SUN_RADIUS_KM). */
 export const SUN_RADIUS_KM = 6.957e5;
 
-/** NOAA-equivalent fixed L1→Earth delay, seconds (contract: FIXED_FALLBACK_DELAY_S). */
-export const FIXED_FALLBACK_DELAY_S = 1800;
-
 /** Earth equatorial radius in km. */
 export const EARTH_RADIUS_KM = 6371;
 
@@ -46,9 +43,6 @@ export const DEFAULT_DBM_AMBIENT_WIND_KMS = 400;
 // ---------------------------------------------------------------------------
 // Scene visual defaults
 // ---------------------------------------------------------------------------
-
-/** Earth minimum rendered radius in compressed-scale scene units. Never smaller. */
-export const EARTH_MIN_SCENE_RADIUS = 0.015;
 
 /** Sun rendered radius in compressed-scale scene units (fixed anchor, matches compressDistance). */
 export const SUN_COMPRESSED_SCENE_RADIUS = 0.50;

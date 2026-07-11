@@ -115,7 +115,7 @@ export function computeParkerGrid(
 }
 
 // ---------------------------------------------------------------------------
-// Parker offset (used for Earth-bound geometry, spec §6.3)
+// Parker offset used for Earth-bound geometry
 // ---------------------------------------------------------------------------
 
 /**

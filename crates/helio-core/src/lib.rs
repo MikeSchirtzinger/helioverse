@@ -6,8 +6,6 @@
 //!
 //! # WASM target
 //! Build with `wasm-pack build --target web` for browser consumption.
-//! Workers import the same WASM binary.
-//!
 //! # Unit conventions (everywhere, no exceptions)
 //! - time:        unix seconds UTC (f64)
 //! - angles:      degrees (f64)
@@ -24,8 +22,14 @@ pub mod astronomy;
 pub mod golook;
 pub mod error;
 
+/// Thin `#[wasm_bindgen]` marshalling surface. Compiled only for the wasm32
+/// target so native builds + golden-vector tests verify the pure functions
+/// untouched; the built `.wasm` is verified separately from TS.
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
+
 // Re-export the public API matching contracts/wasm-api/helio_core_api.rs
-pub use constants::{AU_KM, SUN_RADIUS_KM, FIXED_FALLBACK_DELAY_S};
+pub use constants::{AU_KM, SUN_RADIUS_KM};
 pub use error::CoreError;
 pub use delay::l1_delay_seconds;
 pub use dbm::{DbmParams, CmeState, dbm_step, dbm_arrival, cone_contains_earth};

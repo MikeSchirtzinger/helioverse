@@ -1,4 +1,4 @@
-//! §7.1 — "Go Look" score (scalar inputs ONLY — §4.1 invariant)
+//! Local "Go Look" score from scalar inputs.
 
 #[derive(Debug, Clone, Copy)]
 pub struct GoLookInputs {

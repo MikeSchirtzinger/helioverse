@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helioverse.app/schema/learning/outcome-v1.json",
+  "title": "Helioverse exact-link outcome v1",
+  "type": "object",
+  "required": ["schema_version", "event_id", "revision", "recorded_at", "link_method", "shock", "storm"],
+  "properties": {
+    "schema_version": { "const": "helioverse.outcome.v1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "revision": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "link_method": { "const": "donki-exact-graph" },
+    "shock": { "type": ["object", "null"] },
+    "storm": { "type": ["object", "null"] }
+  },
+  "additionalProperties": false
+}
