@@ -17,10 +17,23 @@ jobs:
         with:
           node-version: 20
       - uses: astral-sh/setup-uv@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
+      - name: Install pinned WASM builder
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            cargo install wasm-pack --version 0.13.1 --locked
+          fi
+          wasm-pack --version
+      - name: Generate Rust physics package
+        run: corepack pnpm build:wasm
       - run: corepack pnpm check:all
       - run: corepack pnpm check:learning
+      - name: Build production frontend
+        run: corepack pnpm --filter @helioverse/web build
 
   rust:
     runs-on: ubuntu-latest
