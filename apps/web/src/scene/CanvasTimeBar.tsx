@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { AU_KM } from './constants';
 import { cmeFrontRadiusKm, cmeFrontSpeedKms, cmeKinematics } from './cme-propagation';
 import type { CmeEventData } from './types';
@@ -23,9 +23,10 @@ export interface CanvasTimeBarProps {
   /** Event whose front distance is read out (and gating the "T+" label). */
   event: CmeEventData;
   regionLabel?: string;
-  /** Reports play/pause state up so the scene can freeze motion + the badge can
-   * show "paused" when the clock isn't advancing. */
-  onPlayingChange?: (playing: boolean) => void;
+  playing: boolean;
+  speedHoursPerSecond: number;
+  onPlayingChange: (playing: boolean) => void;
+  onSpeedChange: (hoursPerSecond: number) => void;
 }
 
 const SPEEDS: Array<{ label: string; hoursPerSec: number }> = [
@@ -59,50 +60,19 @@ export function CanvasTimeBar({
   milestones,
   event,
   regionLabel,
+  playing,
+  speedHoursPerSecond,
   onPlayingChange,
+  onSpeedChange,
 }: CanvasTimeBarProps) {
   const startMs = useMemo(() => Date.parse(windowStartIso), [windowStartIso]);
   const endMs = useMemo(() => Date.parse(windowEndIso), [windowEndIso]);
   const span = Math.max(1, endMs - startMs);
 
-  const [playing, setPlaying] = useState(false);
-  const [speedIdx, setSpeedIdx] = useState(1); // 6h/s
-
-  // Surface play/pause up to the console (freezes scene motion + badge state).
-  const onPlayingRef = useRef(onPlayingChange);
-  onPlayingRef.current = onPlayingChange;
-  useEffect(() => {
-    onPlayingRef.current?.(playing);
-  }, [playing]);
-
-  const valueRef = useRef(valueIso);
-  valueRef.current = valueIso;
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  const speedIdx = Math.max(0, SPEEDS.findIndex((speed) => speed.hoursPerSec === speedHoursPerSecond));
 
   const valueMs = Date.parse(valueIso);
   const pct = ((valueMs - startMs) / span) * 100;
-
-  // Auto-advance the master clock while playing.
-  useEffect(() => {
-    if (!playing) return undefined;
-    const speed = SPEEDS[speedIdx]?.hoursPerSec ?? 6;
-    let raf = 0;
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      let next = Date.parse(valueRef.current) + dt * speed * 3600 * 1000;
-      if (next >= endMs) {
-        next = endMs;
-        setPlaying(false);
-      }
-      onChangeRef.current(toIso(next));
-      if (next < endMs) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, speedIdx, endMs]);
 
   const setFromPercent = (percent: number) => {
     const ms = startMs + (Math.max(0, Math.min(100, percent)) / 100) * span;
@@ -143,7 +113,7 @@ export function CanvasTimeBar({
         <button
           type="button"
           className={`hv-tb-play${playing ? ' is-playing' : ''}`}
-          onClick={() => setPlaying((value) => !value)}
+          onClick={() => onPlayingChange(!playing)}
           aria-pressed={playing}
           aria-label={playing ? 'Pause playback' : 'Play the eruption-to-impact journey'}
         >
@@ -157,7 +127,7 @@ export function CanvasTimeBar({
               type="button"
               className={index === speedIdx ? 'is-active' : ''}
               aria-pressed={index === speedIdx}
-              onClick={() => setSpeedIdx(index)}
+              onClick={() => onSpeedChange(speed.hoursPerSec)}
             >
               {speed.label}
             </button>

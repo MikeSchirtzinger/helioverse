@@ -120,7 +120,7 @@ export function createSunGlow(radius: number): SunVisuals {
   group.name = 'sun-observation-shell';
 
   const chromosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 1.08, 64, 48),
+    new THREE.SphereGeometry(radius * 1.025, 64, 48),
     new THREE.MeshBasicMaterial({
       color: 0xff7b2e,
       transparent: true,
@@ -651,7 +651,7 @@ export function applySolarFilter(
   filter: SolarFilter,
 ): void {
   void filter;
-  const neutralGlow = 0xffe9c8;
+  const neutralGlow = 0xffa24a;
 
   const chromoMat = visuals.chromosphere.material as THREE.MeshBasicMaterial;
   chromoMat.color.setHex(neutralGlow);
@@ -964,7 +964,7 @@ export function createEarthFocus(radius: number, sunDir: THREE.Vector3): EarthFo
     new THREE.MeshBasicMaterial({
       color: 0x5aa6ff,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.14,
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -985,11 +985,11 @@ export function createEarthFocus(radius: number, sunDir: THREE.Vector3): EarthFo
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      opacity: 0.7,
+      opacity: 0.46,
       fog: false,
     }),
   );
-  halo.scale.setScalar(radius * 3);
+  halo.scale.setScalar(radius * 2.55);
   group.add(halo);
 
   // PROVENANCE R1: aurora torus — kept for disposal but always invisible.
@@ -1275,19 +1275,29 @@ export function createMagnetosphere(): MagnetosphereVisuals {
   // --- Magnetopause: Shue paraboloid revolved around the Sun–Earth (X) axis ---
   const alpha = shueAlpha(2, -1); // quiet-time shape; size is scaled per-frame
   const profile: THREE.Vector2[] = [];
-  for (let i = 0; i <= 40; i += 1) {
+  for (let i = 0; i <= 24; i += 1) {
     // Dayside cap only (0 → ~94°): the sunward boundary whose standoff is the
     // story. A full Shue tail would flare to ~45 Re and swamp the nose.
-    const theta = (i / 40) * Math.PI * 0.52;
+    const theta = (i / 24) * Math.PI * 0.52;
     const r = shueRadiusRe(1, alpha, theta);
     profile.push(new THREE.Vector2(Math.max(1e-3, r * Math.sin(theta)), r * Math.cos(theta)));
   }
-  const mpGeometry = new THREE.LatheGeometry(profile, 64);
+  const mpGeometry = new THREE.LatheGeometry(profile, 36);
   mpGeometry.rotateZ(-Math.PI / 2); // revolve axis Y → +X (nose points sunward)
   const magnetopause = new THREE.Mesh(
     mpGeometry,
-    // BackSide so the near wall doesn't paint over the belts/GEO ring inside.
-    new THREE.MeshBasicMaterial({ color: 0x4fd0ff, transparent: true, opacity: 0.1, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
+    // A wire boundary keeps the measured-driven interior readable and avoids a
+    // giant translucent blob swallowing the whole scene on WebGPU.
+    new THREE.MeshBasicMaterial({
+      color: 0x4fd0ff,
+      transparent: true,
+      opacity: 0.16,
+      wireframe: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+      fog: false,
+    }),
   );
   magnetopause.name = 'magnetopause';
   group.add(magnetopause);
@@ -1310,7 +1320,7 @@ export function createMagnetosphere(): MagnetosphereVisuals {
   // --- Van Allen belts (axis = magnetic Y) ---
   const innerBelt = new THREE.Mesh(
     new THREE.TorusGeometry(1.7, 0.42, 16, 80),
-    new THREE.MeshBasicMaterial({ color: 0xffb14d, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0xffb14d, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
   );
   innerBelt.name = 'inner-belt';
   innerBelt.rotation.x = Math.PI / 2;
@@ -1318,7 +1328,7 @@ export function createMagnetosphere(): MagnetosphereVisuals {
 
   const outerBelt = new THREE.Mesh(
     new THREE.TorusGeometry(4.8, 1.35, 18, 96),
-    new THREE.MeshBasicMaterial({ color: 0x6bff9a, transparent: true, opacity: 0.34, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0x6bff9a, transparent: true, opacity: 0.24, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
   );
   outerBelt.name = 'outer-belt';
   outerBelt.rotation.x = Math.PI / 2;
@@ -1370,7 +1380,7 @@ export function updateMagnetosphere(
   viz.magnetopause.scale.setScalar(state.standoffRe);
   const mpMat = viz.magnetopause.material as THREE.MeshBasicMaterial;
   mpMat.color.copy(MP_CALM).lerp(MP_HOT, c);
-  mpMat.opacity = 0.1 + c * 0.12;
+  mpMat.opacity = 0.14 + c * 0.12;
 
   // Dayside field lines compress sunward with the standoff distance.
   viz.dayField.scale.x = clamp(state.standoffRe / QUIET_STANDOFF_RE, 0.46, 1.05);
@@ -1379,7 +1389,7 @@ export function updateMagnetosphere(
   viz.outerBelt.scale.setScalar(clamp(state.outerBeltOuterRe / 6.8, 0.62, 1.05));
   const obMat = viz.outerBelt.material as THREE.MeshBasicMaterial;
   obMat.color.copy(BELT_CALM).lerp(BELT_HOT, c);
-  obMat.opacity = 0.34 - c * 0.1;
+  obMat.opacity = 0.24 - c * 0.08;
 
   // GEO ring: cyan when safe, steady red once the boundary is inside it.
   const geoMat = viz.geoRing.material as THREE.LineBasicMaterial;

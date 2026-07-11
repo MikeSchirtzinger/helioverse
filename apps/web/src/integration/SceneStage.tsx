@@ -67,6 +67,8 @@ export interface SceneStageProps {
   statusLine: string;
   /** Timeline playback state — when false the scene freezes decorative motion. */
   isPlaying?: boolean;
+  /** Freeze the measured solar frame while the journey clock advances quickly. */
+  freezeSolarImagery?: boolean;
   /** Right rail open? Drives the minimap's default right-side inset. */
   rightRailOpen?: boolean;
 }
@@ -95,6 +97,7 @@ export function SceneStage({
   impactSummary,
   statusLine,
   isPlaying = false,
+  freezeSolarImagery = false,
   rightRailOpen = false,
 }: SceneStageProps) {
   const [capability, setCapability] = useState<HelioCanvasCapability>(() => rendererCapability('initializing'));
@@ -214,6 +217,7 @@ export function SceneStage({
         magnetosphereState={mag}
         onAnchorChange={handleAnchor}
         isPlaying={isPlaying}
+        freezeSolarImagery={freezeSolarImagery}
         rightRailOpen={rightRailOpen}
       />
 

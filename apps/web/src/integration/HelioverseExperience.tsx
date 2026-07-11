@@ -112,12 +112,15 @@ export function HelioverseExperience() {
   const [followNow, setFollowNow] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<CausalStepId>('sun');
-  const [interactionMode, setInteractionMode] = useState<CanvasInteractionMode>('orbit');
+  const [interactionMode, setInteractionMode] = useState<CanvasInteractionMode>('solar-focus');
   const [solarFilter, setSolarFilter] = useState<SolarFilter>('sdo193');
   const [layers, setLayers] = useState<CanvasLayers>(DEFAULT_CANVAS_LAYERS);
   const [activePanel, setActivePanel] = useState<PanelId>('now');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeedHoursPerSecond, setPlaybackSpeedHoursPerSecond] = useState(6);
+  const selectedTimeRef = useRef(selectedTimeIso);
+  selectedTimeRef.current = selectedTimeIso;
 
   const userLocation = useUserLocation();
   const swpc = useSwpcNow();
@@ -144,6 +147,7 @@ export function HelioverseExperience() {
   }, [drawerOpen]);
 
   useEffect(() => {
+    setIsPlaying(false);
     if (sceneMode === 'live') {
       setSelectedTimeIso(nowIso());
       setFollowNow(true);
@@ -182,6 +186,30 @@ export function HelioverseExperience() {
   const windowEndIso = sceneMode === 'live' ? (liveScene?.windowEndIso ?? liveWindow.end) : scenario.windowEndIso;
   const milestones = sceneMode === 'live' ? (liveScene?.milestones ?? []) : scenario.milestones;
   const timelineEvent = primaryEvent ?? cmes[0]?.event ?? null;
+  const windowEndRef = useRef(windowEndIso);
+  windowEndRef.current = windowEndIso;
+
+  // One shared clock drives both the desktop and mobile controls. Keeping the
+  // advancement here prevents hidden duplicate timebars from racing each other.
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+    let frame = 0;
+    let last = performance.now();
+    const advance = (now: number) => {
+      const elapsedSeconds = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const endMs = Date.parse(windowEndRef.current);
+      const currentMs = Date.parse(selectedTimeRef.current);
+      const nextMs = Math.min(endMs, currentMs + elapsedSeconds * playbackSpeedHoursPerSecond * 3_600_000);
+      const nextIso = new Date(nextMs).toISOString().replace('.000Z', 'Z');
+      selectedTimeRef.current = nextIso;
+      setSelectedTimeIso(nextIso);
+      if (nextMs >= endMs) setIsPlaying(false);
+      else frame = window.requestAnimationFrame(advance);
+    };
+    frame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isPlaying, playbackSpeedHoursPerSecond]);
 
   const liveSceneState = live.loading
     ? 'loading DONKI events'
@@ -241,6 +269,18 @@ export function HelioverseExperience() {
   const currentBz = swpc.data?.bz_nt;
   const currentFeedsApply = sceneMode === 'live' && followNow;
 
+  const setJourneyPlaying = (playing: boolean) => {
+    if (playing) {
+      const endMs = Date.parse(windowEndIso);
+      if (Date.parse(selectedTimeIso) >= endMs - 1_000) {
+        selectedTimeRef.current = windowStartIso;
+        setSelectedTimeIso(windowStartIso);
+      }
+      setFollowNow(false);
+    }
+    setIsPlaying(playing);
+  };
+
   const timeline = timelineEvent ? (
     <CanvasTimeBar
       key={`${sceneMode}-${timelineEvent.id}`}
@@ -251,10 +291,10 @@ export function HelioverseExperience() {
         setSelectedTimeIso(value);
         setFollowNow(false);
       }}
-      onPlayingChange={(playing) => {
-        setIsPlaying(playing);
-        if (playing) setFollowNow(false);
-      }}
+      playing={isPlaying}
+      speedHoursPerSecond={playbackSpeedHoursPerSecond}
+      onPlayingChange={setJourneyPlaying}
+      onSpeedChange={setPlaybackSpeedHoursPerSecond}
       milestones={milestones}
       event={timelineEvent}
       regionLabel={sceneMode === 'live' ? 'NASA DONKI event' : scenario.region}
@@ -284,6 +324,7 @@ export function HelioverseExperience() {
         impactSummary={sceneMode === 'live' ? (currentFeedsApply ? liveAuroraSummary(swpc.data) : historicalLiveAuroraSummary()) : replayImpactSummary()}
         statusLine={statusLine}
         isPlaying={isPlaying || (sceneMode === 'live' && followNow)}
+        freezeSolarImagery={isPlaying}
         rightRailOpen={drawerOpen}
       />
 
@@ -314,11 +355,29 @@ export function HelioverseExperience() {
         ))}
       </nav>
 
-      <section className="hx-scene-caption" aria-live="polite">
-        <div><span>{selectedStep.index}</span><p>{selectedStep.question}</p></div>
+      <section key={activeStep} className="hx-scene-caption" aria-live="polite">
+        <div className="hx-scene-caption-context"><span>{selectedStep.index}</span><p>{selectedStep.question}</p></div>
         <strong>{selectedStep.title}</strong>
-        <button type="button" onClick={() => openPanel('learn')}>Explain this stage</button>
+        <div className="hx-scene-caption-actions">
+          {timelineEvent ? (
+            <button type="button" className="hx-journey-toggle" aria-pressed={isPlaying} aria-label={isPlaying ? 'Pause journey' : 'Play journey'} onClick={() => setJourneyPlaying(!isPlaying)}>
+              <span className="hx-action-label-long">{isPlaying ? 'Pause journey' : 'Play journey'}</span>
+              <span className="hx-action-label-short" aria-hidden="true">{isPlaying ? 'Pause' : 'Play'}</span>
+            </button>
+          ) : null}
+          <button type="button" aria-label="Explain this stage" onClick={() => openPanel('learn')}>
+            <span className="hx-action-label-long">Explain stage</span>
+            <span className="hx-action-label-short" aria-hidden="true">Explain</span>
+          </button>
+        </div>
       </section>
+
+      {!drawerOpen ? (
+        <div className="hx-gesture-hint" aria-hidden="true">
+          <span className="hx-gesture-hint--pointer">Drag to orbit · scroll to zoom</span>
+          <span className="hx-gesture-hint--touch">Drag to orbit · pinch to zoom</span>
+        </div>
+      ) : null}
 
       <button type="button" className="hx-now-peek" onClick={() => openPanel('now')} data-state={currentBz == null ? 'missing' : currentBz < 0 ? 'south' : 'north'}>
         <span>Bz {currentBz == null ? 'unavailable' : `${currentBz.toFixed(1)} nT`}</span>
@@ -453,6 +512,8 @@ function EventsPanel({
         <p>{mode === 'live' ? 'Measured detections become modelled fronts only when DONKI provides usable speed and direction.' : 'Every outcome is historical. Replay never appears as current conditions.'}</p>
       </div>
 
+      {timeline ? <div className="hx-timeline hx-timeline--mobile">{timeline}</div> : null}
+
       {mode === 'live' ? (
         liveScene ? (
           <>
@@ -473,8 +534,6 @@ function EventsPanel({
           ) : null}
         </>
       )}
-
-      {timeline ? <div className="hx-timeline hx-timeline--mobile">{timeline}</div> : null}
 
       <div className="hx-live-ledger">
         <header><h3>Observed activity · 30 days</h3><span>{donkiLoading ? 'refreshing…' : 'NASA DONKI'}</span></header>

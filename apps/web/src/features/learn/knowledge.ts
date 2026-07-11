@@ -39,7 +39,7 @@ export const CAUSAL_STEPS: readonly CausalStep[] = [
     watch: 'The real SDO/Helioviewer disk, GOES 0.1–0.8 nm X-ray flux, and DONKI CME/FLR event records.',
     source: 'GOES `flux`; DONKI `classType`, `CMEAnalysis.speed/latitude/longitude/halfAngle`; Helioviewer SDO frame',
     provenance: 'measured',
-    cameraMode: 'orbit',
+    cameraMode: 'solar-focus',
     solarFilter: 'sdo193',
     keywords: ['sun', 'flare', 'cme', 'coronal hole', 'eruption', 'x-ray', 'active region', 'light'],
   },

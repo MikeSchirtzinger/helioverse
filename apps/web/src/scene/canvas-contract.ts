@@ -131,7 +131,7 @@ export interface SwpcNow {
 
 export type CanvasRendererPath = 'webgpu' | 'webgl2' | 'none' | 'initializing';
 
-export type CanvasInteractionMode = 'orbit' | 'inspect' | 'follow-event' | 'earth-impact' | 'magnetosphere';
+export type CanvasInteractionMode = 'solar-focus' | 'orbit' | 'inspect' | 'follow-event' | 'earth-impact' | 'magnetosphere';
 
 /** NASA/SWPC-style solar observation channels the Sun can be rendered through. */
 export type SolarFilter = 'visible' | 'sdo304' | 'sdo171' | 'sdo193' | 'sdo211' | 'magnetogram';
@@ -232,6 +232,7 @@ export interface HelioCanvasSnapshot {
 }
 
 export const CANVAS_INTERACTION_MODES: Array<{ mode: CanvasInteractionMode; label: string; hint: string }> = [
+  { mode: 'solar-focus', label: 'Sun', hint: 'Focus the measured Earth-facing solar hemisphere; drag to orbit and pinch or wheel to zoom.' },
   { mode: 'orbit', label: 'System', hint: 'Drag to orbit the eight-planet solar system; wheel to zoom.' },
   { mode: 'inspect', label: 'Inspect', hint: 'Hold focus on Earth, L1, and active CME readouts.' },
   { mode: 'follow-event', label: 'Follow CME', hint: 'Bias the camera toward the Earth-bound CME shell.' },

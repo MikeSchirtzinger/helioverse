@@ -33,6 +33,8 @@ interface HelioCanvasLiveProps extends HelioCanvasProps {
   /** Timeline playback state. When false, decorative body rotation + solar-wind
    * drift freeze, so a paused clock yields a genuinely still scene. */
   isPlaying?: boolean;
+  /** Freeze the measured solar frame while a fast journey clock is advancing. */
+  freezeSolarImagery?: boolean;
   /** Right rail open? Drives the minimap's default right-side inset so it tucks
    * beside the rail when open and hugs the edge when closed. */
   rightRailOpen?: boolean;
@@ -81,12 +83,38 @@ type HelioRenderer = WebGPURenderer | THREE.WebGLRenderer;
 const IMAGERY_SETTLE_MS = 450;
 
 interface PointerState {
-  active: boolean;
+  primaryId: number | null;
+  points: Map<number, { x: number; y: number }>;
   x: number;
   y: number;
   downX: number;
   downY: number;
   moved: boolean;
+  pinchDistance: number | null;
+}
+
+const SUN_FILTER_LABELS: Record<NonNullable<HelioCanvasLiveProps['controls']['solarFilter']>, string> = {
+  visible: 'HMI continuum',
+  sdo304: 'AIA 304 Å',
+  sdo171: 'AIA 171 Å',
+  sdo193: 'AIA 193 Å',
+  sdo211: 'AIA 211 Å',
+  magnetogram: 'HMI magnetogram',
+};
+
+function sunObservationLabel(filter: keyof typeof SUN_FILTER_LABELS, observedAt: string | null): string {
+  if (!observedAt) return `${SUN_FILTER_LABELS[filter]} · measured frame`;
+  const date = new Date(observedAt);
+  if (Number.isNaN(date.getTime())) return `${SUN_FILTER_LABELS[filter]} · measured frame`;
+  const stamp = date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  });
+  return `${SUN_FILTER_LABELS[filter]} · ${stamp} UTC`;
 }
 
 /** Live references the layer/imagery effects need after the scene is built. */
@@ -110,6 +138,8 @@ interface ToggleTargets {
   sunImageryEl: HTMLElement | null;
   /** CSS2D object paired with `sunImageryEl`; hide this, not only its DOM node. */
   sunImageryLabel: THREE.Object3D | null;
+  /** Secondary line in the normal Sun label; carries the actual frame clock. */
+  sunObservationSub: HTMLElement | null;
 }
 
 export function HelioCanvas({
@@ -128,6 +158,7 @@ export function HelioCanvas({
   magnetosphereState,
   onAnchorChange,
   isPlaying = false,
+  freezeSolarImagery = false,
   rightRailOpen = false,
 }: HelioCanvasLiveProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -298,8 +329,13 @@ export function HelioCanvas({
     }
   }, [solarWindSpeedKms, builtTick]);
 
-  // Swap in real SDO/Helioviewer imagery for the selected time + channel.
-  const imageryBucket = Math.round(timeUnix / 720);
+  // Swap in real SDO/Helioviewer imagery for the selected time + channel. While
+  // a fast journey is playing, retain the last observed frame instead of
+  // launching/cancelling a new image request on every animation tick.
+  const imageryTimeRef = useRef(timeUnix);
+  if (!freezeSolarImagery) imageryTimeRef.current = timeUnix;
+  const imageryTimeUnix = freezeSolarImagery ? imageryTimeRef.current : timeUnix;
+  const imageryBucket = Math.floor(imageryTimeUnix / 720);
   useEffect(() => {
     const surface = toggleRef.current?.sunSurface ?? null;
     const imageryEl = toggleRef.current?.sunImageryEl ?? null;
@@ -320,11 +356,16 @@ export function HelioCanvas({
     }
     // Real-imagery on but no disk loaded yet → show the honest label until a
     // real frame lands (R4/R5: never a silent dark sphere).
-    if (imageryEl && imageryLabel && !surface.visible) imageryLabel.visible = true;
-    if (!Number.isFinite(timeUnix)) return undefined;
+    if (imageryEl && imageryLabel && !surface.visible) {
+      imageryEl.textContent = `Loading measured ${SUN_FILTER_LABELS[solarFilter]} frame…`;
+      imageryEl.dataset.state = 'loading';
+      imageryEl.setAttribute('aria-hidden', 'false');
+      imageryLabel.visible = true;
+    }
+    if (!Number.isFinite(imageryTimeUnix)) return undefined;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      const dateIso = new Date(timeUnix * 1000).toISOString().replace('.000Z', 'Z');
+      const dateIso = new Date(imageryTimeUnix * 1000).toISOString().replace('.000Z', 'Z');
       void loadSunTexture({ dateIso, filter: solarFilter }, controller.signal).then((texture) => {
         if (controller.signal.aborted) {
           texture?.dispose();
@@ -333,6 +374,7 @@ export function HelioCanvas({
         const current = toggleRef.current?.sunSurface ?? null;
         const currentImageryEl = toggleRef.current?.sunImageryEl ?? null;
         const currentImageryLabel = toggleRef.current?.sunImageryLabel ?? null;
+        const currentObservationSub = toggleRef.current?.sunObservationSub ?? null;
         if (!current) {
           texture?.dispose();
           return;
@@ -341,7 +383,11 @@ export function HelioCanvas({
         // hidden ("imagery unavailable") state, so we never flash a fake Sun.
         // Only when we have NEVER loaded a disk does the label stay visible.
         if (!texture) {
-          if (currentImageryEl && currentImageryLabel && !current.visible) currentImageryLabel.visible = true;
+          if (currentImageryEl && currentImageryLabel && !current.visible) {
+            currentImageryEl.textContent = `${SUN_FILTER_LABELS[solarFilter]} unavailable at the selected time`;
+            currentImageryEl.dataset.state = 'unavailable';
+            currentImageryLabel.visible = true;
+          }
           return;
         }
         const material = current.material as THREE.MeshBasicMaterial;
@@ -349,16 +395,23 @@ export function HelioCanvas({
         material.map = texture;
         material.needsUpdate = true;
         current.visible = true;
-        if (currentImageryEl && currentImageryLabel) currentImageryLabel.visible = false;
+        if (currentObservationSub) {
+          const observedAt = typeof texture.userData.observedAt === 'string' ? texture.userData.observedAt : null;
+          currentObservationSub.textContent = sunObservationLabel(solarFilter, observedAt);
+        }
+        if (currentImageryEl && currentImageryLabel) {
+          currentImageryEl.dataset.state = 'loaded';
+          currentImageryEl.setAttribute('aria-hidden', 'true');
+          currentImageryLabel.visible = false;
+        }
         if (previous) previous.dispose();
       });
-    }, isPlaying ? IMAGERY_SETTLE_MS * 4 : IMAGERY_SETTLE_MS);
+    }, freezeSolarImagery ? 0 : IMAGERY_SETTLE_MS);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solarFilter, layers.realImagery, imageryBucket, builtTick, isPlaying, controls.interactionMode]);
+  }, [solarFilter, layers.realImagery, imageryBucket, builtTick, freezeSolarImagery, controls.interactionMode, imageryTimeUnix]);
 
   useEffect(() => {
     let cancelled = false;
@@ -375,11 +428,25 @@ export function HelioCanvas({
       capabilityCallbackRef.current?.(next);
     };
 
-    const pointer: PointerState = { active: false, x: 0, y: 0, downX: 0, downY: 0, moved: false };
+    const pointer: PointerState = {
+      primaryId: null,
+      points: new Map(),
+      x: 0,
+      y: 0,
+      downX: 0,
+      downY: 0,
+      moved: false,
+      pinchDistance: null,
+    };
+    const isSolarFocus = controls.interactionMode === 'solar-focus';
     const isEarthImpact = controls.interactionMode === 'earth-impact';
     const isMagnetosphere = controls.interactionMode === 'magnetosphere';
     const cameraState = createDefaultCameraState();
-    if (isEarthImpact) {
+    if (isSolarFocus) {
+      cameraState.azimuth_deg = 0;
+      cameraState.polar_deg = 10;
+      cameraState.distance = 2.45;
+    } else if (isEarthImpact) {
       cameraState.azimuth_deg = 196;
       cameraState.polar_deg = 15;
       cameraState.distance = 2.3;
@@ -392,7 +459,7 @@ export function HelioCanvas({
       cameraState.polar_deg = controls.interactionMode === 'inspect' ? 18 : 28;
       cameraState.distance = controls.interactionMode === 'follow-event' ? 5.2 : 9.2;
     }
-    const minZoom = isEarthImpact ? 0.9 : isMagnetosphere ? 2.6 : 2.1;
+    const minZoom = isSolarFocus ? 1.15 : isEarthImpact ? 0.9 : isMagnetosphere ? 2.6 : 2.1;
 
     const run = async () => {
       publishCapability(INITIAL_CANVAS_CAPABILITY);
@@ -518,7 +585,9 @@ export function HelioCanvas({
       const earthPosition = earth.position.clone();
       const earthRadius = Math.max(0.055, (earth.geometry.boundingSphere?.radius ?? 0.02) * 1.45);
       const cameraTarget = new THREE.Vector3();
-      if (isEarthImpact || isMagnetosphere || controls.interactionMode === 'inspect') {
+      if (isSolarFocus) {
+        cameraTarget.set(0, 0, 0);
+      } else if (isEarthImpact || isMagnetosphere || controls.interactionMode === 'inspect') {
         cameraTarget.copy(earthPosition);
       } else if (controls.interactionMode === 'follow-event' && primaryEvent) {
         cameraTarget.set(earthPosition.x * 0.62, earthPosition.y, earthPosition.z * 0.4);
@@ -565,7 +634,7 @@ export function HelioCanvas({
       // load reads as a silent near-black sphere — exactly the synthetic-looking
       // state the prime directive forbids. We never fall back to a fabricated
       // Sun; the label + dark occluder IS the honest empty state.
-      const sunImageryLabel = createDomLabel('Sun — SDO imagery unavailable', {
+      const sunImageryLabel = createDomLabel('Loading measured solar frame…', {
         kind: 'sun',
         accent: '#ffcf85',
       });
@@ -584,6 +653,7 @@ export function HelioCanvas({
 
       const planetSystem: PlanetSystem = createPlanetSystem(scale, initialTime);
       planetSystem.orbitRings.visible = initialLayers.orbits;
+      planetSystem.group.visible = !isSolarFocus;
 
       // DOM overlay label layer (CSS2DRenderer): real, clickable HTML labels that
       // sit over the canvas rather than being painted into it.
@@ -592,7 +662,7 @@ export function HelioCanvas({
 
       // Anchor bodies — always available, shown subtly (brighten on hover via CSS).
       const sunLabelRef = createDomLabel('Sun', { kind: 'sun', accent: '#ffcf85' });
-      sunLabelRef.sub.textContent = 'SDO · Earth-facing hemisphere';
+      sunLabelRef.sub.textContent = '';
       sunLabelRef.object.position.set(0, sunRadius + 0.16, 0);
       scene.add(sunLabelRef.object);
       const earthLabelRef = createDomLabel('Earth', { kind: 'earth', accent: '#7fd4ff' });
@@ -668,6 +738,7 @@ export function HelioCanvas({
         sunSurface,
         sunImageryEl: sunImageryLabel.el,
         sunImageryLabel: sunImageryLabel.object,
+        sunObservationSub: sunLabelRef.sub,
       };
       toggleRef.current = toggleTargets;
       // Store the style applicator so the parker rebuild effect can reuse it.
@@ -710,13 +781,29 @@ export function HelioCanvas({
       // Cursor position in client coords — used to reveal nearby planet labels.
       const hover = { x: 0, y: 0, inside: false };
 
+      const currentPinchDistance = (): number | null => {
+        const points = [...pointer.points.values()];
+        if (points.length < 2) return null;
+        const first = points[0];
+        const second = points[1];
+        if (!first || !second) return null;
+        return Math.hypot(second.x - first.x, second.y - first.y);
+      };
+
       const onPointerDown = (event: PointerEvent) => {
-        pointer.active = true;
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
-        pointer.downX = event.clientX;
-        pointer.downY = event.clientY;
-        pointer.moved = false;
+        pointer.points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointer.points.size === 1) {
+          pointer.primaryId = event.pointerId;
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+          pointer.downX = event.clientX;
+          pointer.downY = event.clientY;
+          pointer.moved = false;
+          pointer.pinchDistance = null;
+        } else {
+          pointer.moved = true;
+          pointer.pinchDistance = currentPinchDistance();
+        }
         canvas.setPointerCapture(event.pointerId);
       };
 
@@ -724,7 +811,18 @@ export function HelioCanvas({
         hover.x = event.clientX;
         hover.y = event.clientY;
         hover.inside = true;
-        if (!pointer.active) return;
+        if (!pointer.points.has(event.pointerId)) return;
+        pointer.points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointer.points.size >= 2) {
+          const distance = currentPinchDistance();
+          if (distance && pointer.pinchDistance && Math.abs(distance - pointer.pinchDistance) > 0.5) {
+            cameraState.distance = clamp(cameraState.distance * (pointer.pinchDistance / distance), minZoom, 18);
+            pointer.moved = true;
+          }
+          pointer.pinchDistance = distance;
+          return;
+        }
+        if (pointer.primaryId !== event.pointerId) return;
         const dx = event.clientX - pointer.x;
         const dy = event.clientY - pointer.y;
         pointer.x = event.clientX;
@@ -735,11 +833,30 @@ export function HelioCanvas({
         cameraState.polar_deg = clamp(cameraState.polar_deg + dy * orbitFactor, -58, 76);
       };
 
-      const onPointerUp = (event: PointerEvent) => {
-        if (pointer.active && !pointer.moved) tryPick(event.clientX, event.clientY);
-        pointer.active = false;
+      const finishPointer = (event: PointerEvent, allowPick: boolean) => {
+        const wasTap = allowPick && pointer.points.size === 1 && pointer.primaryId === event.pointerId && !pointer.moved;
+        pointer.points.delete(event.pointerId);
+        if (wasTap) tryPick(event.clientX, event.clientY);
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        if (pointer.points.size === 0) {
+          pointer.primaryId = null;
+          pointer.pinchDistance = null;
+          pointer.moved = false;
+          return;
+        }
+        const next = pointer.points.entries().next().value as [number, { x: number; y: number }] | undefined;
+        if (next) {
+          pointer.primaryId = next[0];
+          pointer.x = next[1].x;
+          pointer.y = next[1].y;
+          pointer.downX = next[1].x;
+          pointer.downY = next[1].y;
+          pointer.pinchDistance = null;
+        }
       };
+
+      const onPointerUp = (event: PointerEvent) => finishPointer(event, true);
+      const onPointerCancel = (event: PointerEvent) => finishPointer(event, false);
 
       const onWheel = (event: WheelEvent) => {
         event.preventDefault();
@@ -756,7 +873,11 @@ export function HelioCanvas({
         if (key === '+' || key === '=') cameraState.distance = clamp(cameraState.distance * 0.9, minZoom, 18);
         if (key === '-' || key === '_') cameraState.distance = clamp(cameraState.distance * 1.1, minZoom, 18);
         if (key === '0') {
-          if (isEarthImpact) {
+          if (isSolarFocus) {
+            cameraState.azimuth_deg = 0;
+            cameraState.polar_deg = 10;
+            cameraState.distance = 2.45;
+          } else if (isEarthImpact) {
             cameraState.azimuth_deg = 196;
             cameraState.polar_deg = 15;
             cameraState.distance = 2.3;
@@ -779,7 +900,7 @@ export function HelioCanvas({
       canvas.addEventListener('pointerdown', onPointerDown);
       canvas.addEventListener('pointermove', onPointerMove);
       canvas.addEventListener('pointerup', onPointerUp);
-      canvas.addEventListener('pointercancel', onPointerUp);
+      canvas.addEventListener('pointercancel', onPointerCancel);
       canvas.addEventListener('pointerleave', onPointerLeave);
       canvas.addEventListener('wheel', onWheel, { passive: false });
       canvas.addEventListener('keydown', onKeyDown);
@@ -798,10 +919,8 @@ export function HelioCanvas({
         // science state on the Three object every frame so a loaded real disk
         // can never retain the earlier "imagery unavailable" loading label.
         const imageryUnavailable = layersRef.current.realImagery && !sunSurface.visible && !inMag && !isEarthImpact;
-        sunLabelRef.sub.textContent = sunSurface.visible ? 'SDO · Earth-facing hemisphere' : '';
+        if (!sunSurface.visible) sunLabelRef.sub.textContent = '';
         sunImageryLabel.object.visible = imageryUnavailable;
-        sunImageryLabel.el.dataset.state = imageryUnavailable ? 'unavailable' : 'loaded';
-        sunImageryLabel.el.setAttribute('aria-hidden', imageryUnavailable ? 'false' : 'true');
         camera.updateMatrixWorld();
         const rect = canvas.getBoundingClientRect();
         const hx = hover.x - rect.left;
@@ -905,6 +1024,12 @@ export function HelioCanvas({
           // Sun→Earth domain. The live-scene filter removes departed fronts;
           // DONKI/ENLIL does not justify visually merging separate fronts here.
           const front = updateCmeVisuals(visuals, t, visuals.event.id === selected);
+          if (front && isSolarFocus && front.length() > 1.1) {
+            visuals.cloud.visible = false;
+            visuals.glow.visible = false;
+            visuals.pickSphere.visible = false;
+            continue;
+          }
           if (front) cmeFrontByEvent.set(visuals.event.id, front);
         }
         // Dim the static starfield while CME plasma is in flight so the bold
@@ -949,7 +1074,7 @@ export function HelioCanvas({
         canvas.removeEventListener('pointerdown', onPointerDown);
         canvas.removeEventListener('pointermove', onPointerMove);
         canvas.removeEventListener('pointerup', onPointerUp);
-        canvas.removeEventListener('pointercancel', onPointerUp);
+        canvas.removeEventListener('pointercancel', onPointerCancel);
         canvas.removeEventListener('pointerleave', onPointerLeave);
         canvas.removeEventListener('wheel', onWheel);
         canvas.removeEventListener('keydown', onKeyDown);
@@ -997,11 +1122,9 @@ export function HelioCanvas({
         role="img"
         tabIndex={0}
       />
-      <div className={HELIO_CANVAS_CLASSNAMES.reticle} aria-hidden="true" />
-
       {/* The true-scale heliosphere map is useful only in system/transit views.
           Earth-space close-ups use a different scale and hide it explicitly. */}
-      {controls.interactionMode !== 'magnetosphere' && controls.interactionMode !== 'earth-impact' ? (
+      {controls.interactionMode !== 'solar-focus' && controls.interactionMode !== 'magnetosphere' && controls.interactionMode !== 'earth-impact' ? (
         <MiniMap cmes={cmes} timeUnix={timeUnix} sun={sunState} rightRailOpen={rightRailOpen} />
       ) : null}
 

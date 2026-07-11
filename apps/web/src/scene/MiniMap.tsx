@@ -106,7 +106,9 @@ function arcPath(rPx: number, lonA: number, lonB: number): string {
 
 export function MiniMap({ cmes, timeUnix, sun, rightRailOpen = false }: MiniMapProps) {
   const persisted = useMemo(loadState, []);
-  const [open, setOpen] = useState(true);
+  // The 3D scene is the primary experience. Keep this precise 2D reference
+  // available on demand without making it look pasted over the hero view.
+  const [open, setOpen] = useState(false);
   const [size, setSize] = useState<number>(persisted?.size ?? DEFAULT_SIZE);
   // `pos` is null until measured (default right-side placement); a persisted
   // position restores immediately so the panel never flashes to centre.
@@ -286,7 +288,7 @@ export function MiniMap({ cmes, timeUnix, sun, rightRailOpen = false }: MiniMapP
         style={{ ...tabStyle, left: placedPos.left, top: placedPos.top }}
         title="Show the linear-distance inner-heliosphere map"
       >
-        ▣ Inner heliosphere
+        Linear AU map
       </button>
     );
   }
@@ -449,7 +451,7 @@ const panelStyle: CSSProperties = {
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
   color: '#e7eefb',
-  fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+  fontFamily: 'var(--font-sans)',
   fontSize: 11,
   boxShadow: '0 16px 40px rgba(2,6,18,0.5)',
   pointerEvents: 'auto',
@@ -505,7 +507,7 @@ const tabStyle: CSSProperties = {
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
   color: '#cfe0ff',
-  fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+  fontFamily: 'var(--font-sans)',
   fontSize: 11,
   fontWeight: 700,
   cursor: 'pointer',

@@ -98,9 +98,11 @@ function buildIdMap(rows: FeedRow[]): Map<string, EventKind> {
  * the downstream types referenced by that event (for the chain badge).
  */
 function linkedKinds(row: FeedRow, idMap: Map<string, EventKind>): EventKind[] {
-  return row.linkedEventIds
-    .map((id) => idMap.get(id))
-    .filter((k): k is EventKind => k !== undefined);
+  return [...new Set(
+    row.linkedEventIds
+      .map((id) => idMap.get(id))
+      .filter((k): k is EventKind => k !== undefined),
+  )];
 }
 
 // ─── Styling ─────────────────────────────────────────────────────────────────
