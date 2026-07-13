@@ -15,8 +15,8 @@
   "models": [],
   "last_run": {
     "schema_version": "helioverse.training-run.v1",
-    "run_at": "2026-07-11T06:29:34.761Z",
-    "ledger_revision": "7ccea1986ca59267",
+    "run_at": "2026-07-13T08:25:40.522Z",
+    "ledger_revision": "a1a31db586129213",
     "gate": {
       "arrival": 7,
       "kp": 4,
