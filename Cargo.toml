@@ -8,6 +8,18 @@ edition = "2021"
 license = "MIT"
 rust-version = "1.80"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+cast_possible_truncation = "deny"
+cast_sign_loss = "deny"
+dbg_macro = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+
 [profile.release]
 opt-level = "s"
 lto = true

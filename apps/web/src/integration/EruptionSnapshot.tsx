@@ -1,89 +1,326 @@
 /**
- * EruptionSnapshot.tsx — a real Helioviewer thumbnail of the Sun at the moment a
- * selected event erupted (B2).
+ * EruptionSnapshot.tsx — real, per-instrument imagery for a selected solar event.
  *
- * Reuses the same `/hv-api` Helioviewer reverse-proxy + `takeScreenshot` PNG
- * pattern that `scene/solar-imagery.ts` uses for the 3D Sun disk (read-only
- * reference — this file does not import or edit scene code, it replicates the
- * proven call). CMEs are visible in the LASCO coronagraph field of view, so a
- * CME snapshot prefers LASCO C2 → C3, falling back to the AIA 193 Å disk; a
- * flare snapshot prefers the on-disk AIA channels. Every source is a REAL frame
- * nearest the requested time. If none load, an honest "no frame available"
- * state is shown — never a fabricated image.
+ * Every card stays on its named Helioviewer channel. An HTTP-200 image can still
+ * be an eclipse/black frame, so decoded same-origin frames are sampled before
+ * they are revealed. Unusable frames retry a bounded set of earlier times on
+ * that same channel; they are never replaced with another instrument or with a
+ * fabricated fallback.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  hasSolarSignalPixels,
+  normalizeHelioviewerDate,
+  solarImageCandidates,
+} from '@/scene/solar-imagery';
 
 type SnapKind = 'cme' | 'flare';
+type FrameStatus = 'loading' | 'ready' | 'unavailable';
 
-interface SourceTry {
-  /** Helioviewer source id. */
+interface ImageSource {
+  /** Helioviewer source id, verified against the live data-source registry. */
   id: number;
-  /** Human label shown in the caption. */
+  /** Exact observatory/instrument/channel label shown to people. */
   name: string;
-  /** arcsec/pixel framing the instrument's field of view in IMG_SIZE px. */
-  imageScale: number;
+  /** What this view contributes to event monitoring. */
+  view: string;
 }
 
-// CMEs live in the coronagraph field of view: try LASCO C2 (inner) then C3
-// (wide), then the AIA 193 Å disk as a last-resort on-disk context frame.
-const CME_SOURCES: SourceTry[] = [
-  { id: 4, name: 'LASCO C2', imageScale: 24 },
-  { id: 5, name: 'LASCO C3', imageScale: 112 },
-  { id: 11, name: 'AIA 193 Å', imageScale: 5 },
+interface FrameState {
+  candidateIndex: number;
+  imageUrl: string | null;
+  observedAt: string | null;
+  status: FrameStatus;
+}
+
+interface ClosestFrame {
+  id: string;
+  observedAt: string;
+}
+
+const CME_SOURCES: readonly ImageSource[] = [
+  { id: 11, name: 'SDO/AIA 193 Å', view: 'Source-region context' },
+  { id: 4, name: 'SOHO/LASCO C2', view: 'Inner-corona view' },
+  { id: 5, name: 'SOHO/LASCO C3', view: 'Wide-corona view' },
 ];
 
-// Flares are on-disk brightenings: the AIA EUV disk shows them best.
-const FLARE_SOURCES: SourceTry[] = [
-  { id: 11, name: 'AIA 193 Å', imageScale: 5 },
-  { id: 13, name: 'AIA 304 Å', imageScale: 5 },
-  { id: 4, name: 'LASCO C2', imageScale: 24 },
+const FLARE_SOURCES: readonly ImageSource[] = [
+  { id: 9, name: 'SDO/AIA 131 Å', view: 'Hot flare plasma' },
+  { id: 11, name: 'SDO/AIA 193 Å', view: 'Coronal response' },
+  { id: 13, name: 'SDO/AIA 304 Å', view: 'Chromosphere response' },
 ];
 
 const IMG_SIZE = 480;
+const SAMPLE_SIZE = 48;
+const MAX_CANDIDATE_ATTEMPTS = 6;
+/** Reject a "closest" frame that is actually from a distant archive boundary. */
+const MAX_CANDIDATE_DISTANCE_MS = 45 * 60 * 1000;
 
-/** Build a Helioviewer `takeScreenshot` PNG URL through the same-origin /hv-api proxy. */
-function snapshotUrl(dateIso: string, src: SourceTry): string {
-  const origin =
-    typeof window !== 'undefined' && window.location ? window.location.origin : 'https://api.helioviewer.org';
-  const url = new URL(`${origin}/hv-api/v2/takeScreenshot/`);
+function helioviewerEndpoint(path: string): string {
+  if (typeof window === 'undefined') return `https://api.helioviewer.org/v2/${path}/`;
+  return `${window.location.origin}/hv-api/v2/${path}/`;
+}
+
+function closestImageUrl(dateIso: string, sourceId: number): string {
+  const url = new URL(helioviewerEndpoint('getClosestImage'));
   url.searchParams.set('date', dateIso);
-  url.searchParams.set('imageScale', String(src.imageScale));
-  url.searchParams.set('layers', `[${src.id},1,100]`);
-  url.searchParams.set('x0', '0');
-  url.searchParams.set('y0', '0');
-  url.searchParams.set('width', String(IMG_SIZE));
-  url.searchParams.set('height', String(IMG_SIZE));
-  url.searchParams.set('display', 'true');
-  url.searchParams.set('watermark', 'false');
+  url.searchParams.set('sourceId', String(sourceId));
   return url.toString();
 }
 
-/** Compact UTC stamp: "Jun 03 11:48Z". */
-function fmt(dateIso: string): string {
-  const d = new Date(dateIso);
-  if (Number.isNaN(d.getTime())) return dateIso;
-  const mon = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mm = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${mon} ${day} ${hh}:${mm}Z`;
+function downloadImageUrl(id: string): string {
+  const url = new URL(helioviewerEndpoint('downloadImage'));
+  url.searchParams.set('id', id);
+  url.searchParams.set('width', String(IMG_SIZE));
+  url.searchParams.set('type', 'png');
+  return url.toString();
 }
 
-const FRAME_STYLE: React.CSSProperties = {
-  position: 'relative',
-  margin: '10px 0 0',
-  borderRadius: 10,
-  overflow: 'hidden',
-  border: '1px solid var(--hv-hairline)',
-  background: 'oklch(6% 0.02 268)',
-  aspectRatio: '1 / 1',
-};
+/** Explicit UTC stamp, e.g. "2026-06-03 11:48 UTC". */
+function formatUtc(dateIso: string): string {
+  const date = new Date(dateIso);
+  if (Number.isNaN(date.getTime())) return `${dateIso} UTC`;
+  const iso = date.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
 
 /**
- * A real solar-imagery thumbnail at `dateIso` for the selected `label`.
- * `kind` picks the instrument preference order. Falls through the source list on
- * load failure and ends on an honest unavailable state if nothing is available.
+ * Ask for the exact event time first, then reuse the scene's proven rollback
+ * schedule. De-duplication avoids spending two attempts on the same bucket.
  */
+function boundedCandidates(dateIso: string): string[] {
+  return [...new Set([dateIso, ...solarImageCandidates(dateIso)])]
+    .slice(0, MAX_CANDIDATE_ATTEMPTS);
+}
+
+function frameIsNearCandidate(observedAt: string, candidateIso: string): boolean {
+  const observedMs = Date.parse(observedAt);
+  const candidateMs = Date.parse(candidateIso);
+  return Number.isFinite(observedMs)
+    && Number.isFinite(candidateMs)
+    && Math.abs(observedMs - candidateMs) <= MAX_CANDIDATE_DISTANCE_MS;
+}
+
+async function closestFrame(
+  candidateIso: string,
+  sourceId: number,
+  signal: AbortSignal,
+): Promise<ClosestFrame | null> {
+  try {
+    const response = await fetch(closestImageUrl(candidateIso, sourceId), {
+      signal,
+      mode: 'cors',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as { id?: unknown; date?: unknown };
+    const id = typeof payload.id === 'string' || typeof payload.id === 'number'
+      ? String(payload.id)
+      : null;
+    const observedAt = normalizeHelioviewerDate(payload.date);
+    return id && observedAt ? { id, observedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Load one immutable real frame into a same-origin blob URL with cancellation. */
+async function downloadFrame(
+  frameId: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  try {
+    const response = await fetch(downloadImageUrl(frameId), {
+      signal,
+      mode: 'cors',
+    });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    if (signal.aborted || blob.size === 0) return null;
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
+
+function loadDecodedImage(url: string, signal: AbortSignal): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(null);
+      return;
+    }
+
+    const image = new Image();
+    image.decoding = 'async';
+    const finish = (value: HTMLImageElement | null) => {
+      image.onload = null;
+      image.onerror = null;
+      signal.removeEventListener('abort', handleAbort);
+      resolve(value);
+    };
+    const handleAbort = () => {
+      image.removeAttribute('src');
+      finish(null);
+    };
+    image.onload = () => finish(image);
+    image.onerror = () => finish(null);
+    signal.addEventListener('abort', handleAbort, { once: true });
+    image.src = url;
+  });
+}
+
+/** Sample a decoded, same-origin image without displaying a black frame. */
+function loadedImageHasSignal(image: HTMLImageElement): boolean {
+  if (image.naturalWidth === 0 || image.naturalHeight === 0) return false;
+  const sample = document.createElement('canvas');
+  sample.width = SAMPLE_SIZE;
+  sample.height = SAMPLE_SIZE;
+  const context = sample.getContext('2d', { willReadFrequently: true });
+  if (!context) return false;
+
+  try {
+    context.drawImage(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+    return hasSolarSignalPixels(
+      context.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data,
+    );
+  } catch {
+    // A tainted/unreadable image cannot be verified and must not be presented.
+    return false;
+  }
+}
+
+const INITIAL_FRAME: FrameState = {
+  candidateIndex: 0,
+  imageUrl: null,
+  observedAt: null,
+  status: 'loading',
+};
+
+function EventImageCard({
+  dateIso,
+  label,
+  source,
+}: {
+  dateIso: string;
+  label: string;
+  source: ImageSource;
+}) {
+  const candidates = useMemo(() => boundedCandidates(dateIso), [dateIso]);
+  const [frame, setFrame] = useState<FrameState>(INITIAL_FRAME);
+  const requestedUtc = formatUtc(dateIso);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const objectUrls = new Set<string>();
+    const sourceId = source.id;
+    setFrame(INITIAL_FRAME);
+
+    void (async () => {
+      const attemptedFrameIds = new Set<string>();
+      for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+        if (controller.signal.aborted) return;
+        setFrame({ candidateIndex, imageUrl: null, observedAt: null, status: 'loading' });
+
+        const candidateIso = candidates[candidateIndex] ?? dateIso;
+        const closest = await closestFrame(candidateIso, sourceId, controller.signal);
+        if (controller.signal.aborted) return;
+        if (
+          !closest
+          || attemptedFrameIds.has(closest.id)
+          || !frameIsNearCandidate(closest.observedAt, candidateIso)
+        ) continue;
+        attemptedFrameIds.add(closest.id);
+
+        const imageUrl = await downloadFrame(closest.id, controller.signal);
+        if (controller.signal.aborted) {
+          if (imageUrl) URL.revokeObjectURL(imageUrl);
+          return;
+        }
+        if (!imageUrl) continue;
+        objectUrls.add(imageUrl);
+
+        const image = await loadDecodedImage(imageUrl, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!image || !loadedImageHasSignal(image)) {
+          objectUrls.delete(imageUrl);
+          URL.revokeObjectURL(imageUrl);
+          continue;
+        }
+
+        setFrame({
+          candidateIndex,
+          imageUrl,
+          observedAt: closest.observedAt,
+          status: 'ready',
+        });
+        return;
+      }
+
+      if (!controller.signal.aborted) {
+        setFrame({
+          candidateIndex: Math.max(0, candidates.length - 1),
+          imageUrl: null,
+          observedAt: null,
+          status: 'unavailable',
+        });
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+    };
+  }, [candidates, dateIso, source.id]);
+
+  const observedUtc = frame.observedAt ? formatUtc(frame.observedAt) : null;
+  const alt = observedUtc
+    ? `Real ${source.name} instrument imagery observed ${observedUtc} for ${label}; event requested ${requestedUtc}.`
+    : '';
+
+  return (
+    <figure className="hv-erupt-snap__card" data-source-id={source.id} role="listitem">
+      <div className="hv-erupt-snap__frame" data-status={frame.status}>
+        {frame.status === 'ready' && frame.imageUrl ? (
+          <img
+            className="hv-erupt-snap__image"
+            src={frame.imageUrl}
+            alt={alt}
+            width={IMG_SIZE}
+            height={IMG_SIZE}
+            decoding="async"
+          />
+        ) : null}
+
+        {frame.status === 'loading' ? (
+          <div className="hv-erupt-snap__status" role="status">
+            Loading real {source.name} imagery…
+          </div>
+        ) : null}
+
+        {frame.status === 'unavailable' ? (
+          <div className="hv-erupt-snap__status hv-erupt-snap__status--unavailable" role="status">
+            <span aria-hidden="true">☉</span>
+            <span>
+              No verified real {source.name} frame is available near the requested UTC.
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      <figcaption className="hv-erupt-snap__caption">
+        <strong>Real {source.name} imagery</strong>
+        <span>{source.view}</span>
+        <time dateTime={dateIso}>Event requested {requestedUtc}</time>
+        {observedUtc && frame.observedAt ? (
+          <small>
+            <time dateTime={frame.observedAt}>Frame observed {observedUtc}</time>
+          </small>
+        ) : null}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** A horizontally scrollable set of real instrument views for one event. */
 export function EruptionSnapshot({
   dateIso,
   label,
@@ -94,92 +331,37 @@ export function EruptionSnapshot({
   kind?: SnapKind;
 }) {
   const sources = kind === 'flare' ? FLARE_SOURCES : CME_SOURCES;
-  const [tryIdx, setTryIdx] = useState(0);
-  const [status, setStatus] = useState<'loading' | 'ok' | 'failed'>('loading');
-
-  // Restart the source chain whenever the event (time) or kind changes.
-  useEffect(() => {
-    setTryIdx(0);
-    setStatus('loading');
-  }, [dateIso, kind]);
-
-  const current = sources[tryIdx];
-  const src = current ? snapshotUrl(dateIso, current) : null;
-  const stamp = fmt(dateIso);
+  const requestedUtc = formatUtc(dateIso);
 
   return (
-    <figure className="hv-erupt-snap" aria-label={`Eruption snapshot — ${label}`} style={{ margin: 0 }}>
-      <div style={FRAME_STYLE}>
-        {src && status !== 'failed' ? (
-          <img
-            key={src}
-            src={src}
-            alt={`Real ${current!.name} solar imagery nearest ${stamp} (${label} eruption)`}
-            width={IMG_SIZE}
-            height={IMG_SIZE}
-            decoding="async"
-            style={{
-              display: 'block',
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              opacity: status === 'ok' ? 1 : 0,
-              transition: 'opacity 0.25s ease-out',
-            }}
-            onLoad={() => setStatus('ok')}
-            onError={() => {
-              if (tryIdx + 1 < sources.length) {
-                setTryIdx(tryIdx + 1);
-                setStatus('loading');
-              } else {
-                setStatus('failed');
-              }
-            }}
-          />
-        ) : null}
-
-        {status === 'loading' ? (
-          <div style={OVERLAY_STYLE}>
-            <span style={{ fontSize: 11, color: 'var(--hv-muted)' }}>Loading {current?.name ?? 'imagery'}…</span>
-          </div>
-        ) : null}
-
-        {status === 'failed' ? (
-          <div style={OVERLAY_STYLE}>
-            <span aria-hidden="true" style={{ fontSize: 22, opacity: 0.5 }}>☉</span>
-            <span style={{ fontSize: 11, color: 'var(--hv-muted)', textAlign: 'center', maxWidth: '85%' }}>
-              No coronagraph / disk frame available near {stamp}.
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <figcaption
-        style={{
-          marginTop: 5,
-          fontSize: 10.5,
-          color: 'var(--hv-muted)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 8,
+    <section
+      className="hv-erupt-snap"
+      aria-label={`Real instrument imagery for ${label}, requested ${requestedUtc}`}
+    >
+      <div
+        className="hv-erupt-snap__rail"
+        role="list"
+        tabIndex={0}
+        aria-label={`${label} instrument views. Swipe or use the left and right arrow keys to review each instrument.`}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+          event.preventDefault();
+          const direction = event.key === 'ArrowRight' ? 1 : -1;
+          event.currentTarget.scrollBy({
+            left: direction * Math.max(240, event.currentTarget.clientWidth * 0.72),
+            behavior: 'smooth',
+          });
         }}
       >
-        <span>
-          {status === 'ok' && current ? `Real ${current.name}` : 'Eruption snapshot'} · {stamp}
-        </span>
-        <span style={{ color: 'var(--hv-cyan)' }}>Helioviewer / SDO · LASCO</span>
-      </figcaption>
-    </figure>
+        {sources.map((source) => (
+          <EventImageCard
+            key={`${kind}:${label}:${dateIso}:${source.id}`}
+            dateIso={dateIso}
+            label={label}
+            source={source}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
-
-const OVERLAY_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 8,
-  padding: 12,
-};

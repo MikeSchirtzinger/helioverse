@@ -622,6 +622,9 @@ const SOLAR_PALETTES: Record<SolarFilter, SolarPalette> = {
   visible: {
     emissiveIntensity: 1.35,
   },
+  sdo131: {
+    emissiveIntensity: 1.85,
+  },
   sdo304: {
     emissiveIntensity: 1.95,
   },

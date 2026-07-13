@@ -9,9 +9,9 @@
  * `new Date()` — these are the CMEs happening NOW, so the default clock is now
  * and scrubbing rewinds to watch them launch / advances to watch them arrive.
  *
- * Refresh cadence: initial mount + every 30 minutes. CMEs evolve over hours and
- * DONKI caches per date-range key (see donki-feeds.ts), so a refresh only
- * re-hits the network when the day rolls over or a new analysis lands.
+ * Refresh cadence: initial mount, then five minutes after each response settles.
+ * The shared DONKI cache uses the same successful-response TTL, so every poll
+ * revalidates same-day CME revisions instead of landing just before expiry.
  *
  * Returns:
  *   scene    — LiveScene | null  (null = quiet Sun, still loading, or fetch failed)
@@ -20,8 +20,8 @@
  *   windowLabel — human "Jun 09 → Jun 16" for provenance
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { fetchCmeAnalyses } from '@/scene/donki-feeds';
+import { useEffect, useState } from 'react';
+import { DONKI_CACHE_TTL_MS, fetchCmeAnalyses } from '@/scene/donki-feeds';
 import { buildLiveScene, type LiveScene } from '@/scene/live-cmes';
 
 export interface LiveCmesState {
@@ -31,7 +31,6 @@ export interface LiveCmesState {
   windowLabel: string | null;
 }
 
-const POLL_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const WINDOW_DAYS = 7;
 
 /** Format a Date as YYYY-MM-DD (UTC). */
@@ -57,10 +56,8 @@ export function useLiveCmes(): LiveCmesState {
     windowLabel: null,
   });
 
-  const mountedRef = useRef(true);
-
   useEffect(() => {
-    mountedRef.current = true;
+    let cancelled = false;
 
     async function fetchScene() {
       const now = new Date();
@@ -73,7 +70,7 @@ export function useLiveCmes(): LiveCmesState {
 
       try {
         const list = await fetchCmeAnalyses(startYmd, endYmd);
-        if (!mountedRef.current) return;
+        if (cancelled) return;
         const scene = list ? buildLiveScene(list, nowUnix, windowStartUnix) : null;
         setState({
           scene,
@@ -82,18 +79,25 @@ export function useLiveCmes(): LiveCmesState {
           windowLabel: windowLabelOf(startYmd, endYmd),
         });
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         setState((prev) => ({ ...prev, loading: false, error: message }));
       }
     }
 
-    void fetchScene();
-    const interval = setInterval(() => { void fetchScene(); }, POLL_INTERVAL_MS);
+    let timer = 0;
+    async function pollAfterSettlement() {
+      await fetchScene();
+      if (!cancelled) {
+        timer = window.setTimeout(() => { void pollAfterSettlement(); }, DONKI_CACHE_TTL_MS);
+      }
+    }
+
+    void pollAfterSettlement();
 
     return () => {
-      mountedRef.current = false;
-      clearInterval(interval);
+      cancelled = true;
+      window.clearTimeout(timer);
     };
   }, []);
 

@@ -14,13 +14,13 @@
 //! - B-field:     nT, GSM frame
 //! - density:     particles/cm³
 
-pub mod constants;
-pub mod delay;
-pub mod dbm;
-pub mod coupling;
 pub mod astronomy;
-pub mod golook;
+pub mod constants;
+pub mod coupling;
+pub mod dbm;
+pub mod delay;
 pub mod error;
+pub mod golook;
 
 /// Thin `#[wasm_bindgen]` marshalling surface. Compiled only for the wasm32
 /// target so native builds + golden-vector tests verify the pure functions
@@ -29,10 +29,10 @@ pub mod error;
 pub mod wasm;
 
 // Re-export the public API matching contracts/wasm-api/helio_core_api.rs
+pub use astronomy::{sky_state, SkyState};
 pub use constants::{AU_KM, SUN_RADIUS_KM};
-pub use error::CoreError;
+pub use coupling::{dst_step, kp_to_g, newell_coupling};
+pub use dbm::{cone_contains_earth, dbm_arrival, dbm_step, CmeState, DbmParams};
 pub use delay::l1_delay_seconds;
-pub use dbm::{DbmParams, CmeState, dbm_step, dbm_arrival, cone_contains_earth};
-pub use coupling::{newell_coupling, dst_step, kp_to_g};
-pub use astronomy::{SkyState, sky_state};
-pub use golook::{GoLookInputs, GoLookScore, Verdict, Limiter, go_look, darkness_factor};
+pub use error::CoreError;
+pub use golook::{darkness_factor, go_look, GoLookInputs, GoLookScore, Limiter, Verdict};

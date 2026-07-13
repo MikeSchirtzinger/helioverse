@@ -1,9 +1,13 @@
 [package]
 name = "helio-core"
-version = "0.1.0"
-edition = "2021"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
 description = "Helioverse shared physics/scoring crate (WASM target)"
+
+[lints]
+workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -7,16 +7,17 @@
  * PROVENANCE (do not blur — see donki-feeds.ts):
  *   MEASURED (DONKI coronagraph reconstruction): speed, apex direction,
  *     angular half-width, and 21.5 R_sun time.
- *   MODELLED (WSA-Enlil): shock-arrival time, predicted Kp, and Earth-impact flag.
+ *   MODELLED (WSA-Enlil): Earth shock-arrival time, impact qualification, and
+ *     predicted Kp scenarios.
  *   ESTIMATED (DONKI carries NO mass): mass / ion count, derived from the
  *     measured angular width — order-of-magnitude only, labelled everywhere.
  *
  * Every front then propagates on the SAME data-anchored Drag-Based Model the
  * replay uses (`cme-propagation.ts`): measured launch speed near the Sun, then
  * solar-wind drag fitted so the apex lands on the modelled arrival when present.
- * Earth-directedness is settled two honest ways: the WSA-Enlil `isEarthGB`
- * model flag, and an independent geometric cone test from the verified physics
- * core (`coneContainsEarth`).
+ * Earth relevance is settled two honest ways: a WSA-Enlil Earth shock ETA
+ * (with glancing/minor qualifiers kept separate), and an independent geometric
+ * cone test from the verified physics core (`coneContainsEarth`).
  */
 
 import type { CanvasCme } from './canvas-contract';
@@ -46,7 +47,7 @@ export interface LiveCmeView {
   canvas: CanvasCme;
   /** The raw DONKI record (for the detail panel). */
   donki: DonkiCme;
-  /** WSA-Enlil's Earth-directed flag (`isEarthGB`). */
+  /** Whether WSA-Enlil supplies an Earth shock-arrival time. */
   earthDirected: boolean;
   /** Independent geometric test: does the measured cone contain Earth? */
   coneHitsEarth: boolean;
@@ -70,6 +71,10 @@ export interface LiveScene {
   primaryId: string | null;
   /** The primary CME's kinematics (camera follow and event timing). */
   primaryEvent: CmeEventData | null;
+  /** Ledger event used to keep the timeline mounted when no front is in view. */
+  timelineAnchorId: string;
+  /** The timeline anchor's kinematics; independent of the rendered-front cap. */
+  timelineAnchorEvent: CmeEventData;
   /** CMEs detected in the window before the legibility cap. */
   totalDetected: number;
   /** CMEs actually drawn (after the cap). */
@@ -195,18 +200,28 @@ function milestonesFor(views: LiveCmeView[]): TimeBarMilestone[] {
     const e = v.canvas.event;
     out.push({
       id: `${e.id}-cme`,
+      eventId: e.id,
       label: v.canvas.label,
       timeIso: isoOf(e.liftoff_unix),
       kind: 'cme',
       detail: `${v.donki.speed_kms} km/s CME${v.donki.activeRegion ? ` from AR ${v.donki.activeRegion}` : ''}${!v.donki.hasEnlilRun ? ' — no WSA-Enlil run available.' : v.earthDirected ? ' — WSA-Enlil models an Earth impact.' : ' — WSA-Enlil does not model an Earth impact.'}`,
     });
     if (e.arrivalWindow && v.arrivalIso) {
+      const kpRange = v.donki.predictedKpRange;
+      const possibleKp = kpRange
+        ? ` · possible Kp ${kpRange.min === kpRange.max ? kpRange.max : `${kpRange.min}–${kpRange.max}`} across model scenarios`
+        : '';
       out.push({
         id: `${e.id}-eta`,
-        label: `Predicted arrival`,
+        eventId: e.id,
+        label: v.donki.earthImpactClassification === 'glancing'
+          ? 'Glancing Earth ETA'
+          : v.donki.earthImpactClassification === 'minor'
+            ? 'Minor-impact ETA'
+            : 'Earth ETA',
         timeIso: v.arrivalIso,
         kind: 'predicted',
-        detail: `WSA-Enlil shock arrival${v.predictedKp != null ? ` · predicted Kp up to ${v.predictedKp}` : ''}.`,
+        detail: `WSA-Enlil modelled shock arrival${possibleKp}.`,
       });
     }
   }
@@ -250,6 +265,11 @@ export function buildLiveScene(list: DonkiCme[], nowUnix: number, windowStartUni
   const windowEnd = Math.max(latestEta + 12 * HOUR_S, nowUnix + 12 * HOUR_S);
 
   const primary = pickPrimary(renderedViews, nowUnix);
+  // `primary` remains a camera target and therefore only comes from fronts in
+  // the display domain. The timeline is a full-window ledger, so give it an
+  // independent real-event anchor even when every front has already departed.
+  const timelineAnchor = pickPrimary(views, nowUnix);
+  if (!timelineAnchor) return null;
 
   return {
     views,
@@ -257,13 +277,17 @@ export function buildLiveScene(list: DonkiCme[], nowUnix: number, windowStartUni
     cmes: renderedViews.map((v) => v.canvas),
     primaryId: primary?.canvas.event.id ?? null,
     primaryEvent: primary?.canvas.event ?? null,
+    timelineAnchorId: timelineAnchor.canvas.event.id,
+    timelineAnchorEvent: timelineAnchor.canvas.event,
     totalDetected,
     shown: renderedViews.length,
     windowStartIso: isoOf(windowStart),
     windowEndIso: isoOf(windowEnd),
     defaultClockIso: isoOf(nowUnix),
     nowIso: isoOf(nowUnix),
-    milestones: milestonesFor(renderedViews),
+    // The monitor timeline is a ledger, not just a legend for the four fronts
+    // currently cheap enough to draw. Keep every renderable event selectable.
+    milestones: milestonesFor(views),
   };
 }
 

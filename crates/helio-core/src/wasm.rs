@@ -7,7 +7,7 @@
 //! `bool`, or `undefined`). Keeping this layer physics-free means:
 //!   • the native golden-vector tests in `tests/golden_vectors.rs` continue to
 //!     verify the real implementations untouched, and
-//!   • the TS-side golden test (`apps/web/src/core/physics.golden.ts`) verifies
+//!   • the TS-side golden test (`apps/web/src/core/physics.golden.test.ts`) verifies
 //!     this marshalling + the actual built `.wasm` reproduces the same vectors.
 //! Two independent ends, both pinned to `contracts/fixtures/vectors/`.
 //!
@@ -62,8 +62,15 @@ pub fn dbm_step(
     dt_s: f64,
 ) -> Vec<f64> {
     let next = dbm::dbm_step(
-        &dbm::CmeState { r_km, v_kms, t_unix },
-        &dbm::DbmParams { gamma_per_km, ambient_wind_kms },
+        &dbm::CmeState {
+            r_km,
+            v_kms,
+            t_unix,
+        },
+        &dbm::DbmParams {
+            gamma_per_km,
+            ambient_wind_kms,
+        },
         dt_s,
     );
     vec![next.r_km, next.v_kms, next.t_unix]
@@ -81,8 +88,15 @@ pub fn dbm_arrival(
     target_r_km: f64,
 ) -> Option<Vec<f64>> {
     dbm::dbm_arrival(
-        &dbm::CmeState { r_km, v_kms, t_unix },
-        &dbm::DbmParams { gamma_per_km, ambient_wind_kms },
+        &dbm::CmeState {
+            r_km,
+            v_kms,
+            t_unix,
+        },
+        &dbm::DbmParams {
+            gamma_per_km,
+            ambient_wind_kms,
+        },
         target_r_km,
     )
     .ok()
@@ -149,6 +163,7 @@ pub fn darkness_factor(sun_alt_deg: f64) -> f64 {
 ///   verdict_idx — 0 Likely, 1 Possible, 2 Unlikely
 ///   limiter_idx — 0 Daylight, 1 Oval, 2 CloudObserved, 3 CloudForecast, 4 Moon
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)] // Frozen scalar ABI; object marshalling would duplicate policy here.
 pub fn go_look(
     oval_visible_prob: f64,
     sun_alt_deg: f64,

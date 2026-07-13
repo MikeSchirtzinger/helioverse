@@ -4,6 +4,7 @@
 ///
 /// PINNED: coupling = v^(4/3) · B_T^(2/3) · |sin(θc/2)|^(8/3)
 /// Vectors: contracts/fixtures/vectors/coupling.json (1e-9 rel).
+#[must_use]
 pub fn newell_coupling(v_kms: f64, by_nt: f64, bz_nt: f64) -> f64 {
     let bt = by_nt.hypot(bz_nt);
     if bt == 0.0 {
@@ -17,6 +18,7 @@ pub fn newell_coupling(v_kms: f64, by_nt: f64, bz_nt: f64) -> f64 {
 ///
 /// PINNED: OBM 2000 constants. density_pcc reserved/unused in v1.0.
 /// Vectors: contracts/fixtures/vectors/coupling.json (1e-9 rel).
+#[must_use]
 pub fn dst_step(dst_nt: f64, v_kms: f64, bz_nt: f64, _density_pcc: f64, dt_s: f64) -> f64 {
     let bs = 0.0_f64.max(-bz_nt);
     let vbs = v_kms * bs * 1.0e-3;
@@ -28,14 +30,23 @@ pub fn dst_step(dst_nt: f64, v_kms: f64, bz_nt: f64, _density_pcc: f64, dt_s: f6
 /// Kp → NOAA G-scale.
 ///
 /// PINNED: G0 Kp<5; G1 [5,6); G2 [6,7); G3 [7,8); G4 [8,9); G5 Kp≥9.
+/// Non-finite values map to G0 because this frozen API is infallible; the
+/// explicit interval mapping avoids lossy casts and integer underflow.
 /// Vectors: contracts/fixtures/vectors/coupling.json (exact).
+#[must_use]
 pub fn kp_to_g(kp: f64) -> u8 {
-    if kp < 5.0 {
+    if !kp.is_finite() || kp < 5.0 {
         0
-    } else if kp >= 9.0 {
-        5
+    } else if kp < 6.0 {
+        1
+    } else if kp < 7.0 {
+        2
+    } else if kp < 8.0 {
+        3
+    } else if kp < 9.0 {
+        4
     } else {
-        kp as u8 - 4
+        5
     }
 }
 
@@ -48,5 +59,8 @@ mod tests {
         assert_eq!(kp_to_g(4.0), 0);
         assert_eq!(kp_to_g(5.0), 1);
         assert_eq!(kp_to_g(9.0), 5);
+        assert_eq!(kp_to_g(f64::NAN), 0);
+        assert_eq!(kp_to_g(f64::INFINITY), 0);
+        assert_eq!(kp_to_g(f64::NEG_INFINITY), 0);
     }
 }

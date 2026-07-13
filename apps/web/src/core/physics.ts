@@ -16,7 +16,7 @@
  *
  * Init: `initPhysics()` MUST resolve before any wrapper below is called. The app
  * awaits it in `main.tsx` before the first render; the node golden test
- * (`physics.golden.ts`) awaits it with the raw `.wasm` bytes. All wrappers are
+ * (`physics.golden.test.ts`) awaits it with the raw `.wasm` bytes. All wrappers are
  * synchronous once initialised, so they are safe to call inside the render loop.
  */
 

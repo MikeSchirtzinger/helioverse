@@ -78,9 +78,10 @@ without exposing it.
 ## Validation boundary
 
 `check:all` validates the physics contracts, TypeScript, ESLint rules, frontend
-unit tests, and the offline-learning ledger/trainer tests. `check:learning`
-additionally proves the public gate counts and production registry entry match
-the persisted ledger. Rust/WASM tests run separately with `pnpm rust:test`.
+unit tests (including the compiled-WASM golden vectors), and the offline-learning
+ledger/trainer tests. `check:learning` additionally proves the public gate counts
+and production registry entry match the persisted ledger. `pnpm rust:check`
+enforces formatting, native and WASM Clippy, Rust tests, and warning-free docs.
 
 The weekly `Refresh learning ledger` workflow runs only with the repository's
 `NASA_DONKI_KEY` secret. The residual learner remains disabled until both exact

@@ -95,6 +95,7 @@ interface PointerState {
 
 const SUN_FILTER_LABELS: Record<NonNullable<HelioCanvasLiveProps['controls']['solarFilter']>, string> = {
   visible: 'HMI continuum',
+  sdo131: 'AIA 131 Å',
   sdo304: 'AIA 304 Å',
   sdo171: 'AIA 171 Å',
   sdo193: 'AIA 193 Å',
@@ -505,6 +506,10 @@ export function HelioCanvas({
       scaleRef.current = scale;
       const objects = createSceneObjects(sceneData.sun, sceneData.earth, sceneData.l1, parkerGrid, scale);
       const { scene, sun, earth, l1 } = objects;
+      // At heliosphere scale the physical Earth–L1 separation collapses below
+      // the marker diameter. Keep the point out of the general scene and show
+      // it only in the dedicated upstream-monitor inspection view.
+      l1.visible = controls.interactionMode === 'inspect';
       if (initialWindSpeed == null) {
         for (const child of [...objects.parkerGrid.children]) {
           objects.parkerGrid.remove(child);
@@ -671,7 +676,6 @@ export function HelioCanvas({
       const l1LabelRef = createDomLabel(sceneData.l1.spacecraft || 'L1', { kind: 'l1', accent: '#7ddf64' });
       l1LabelRef.object.position.copy(l1.position).add(new THREE.Vector3(0, 0.12, 0));
       scene.add(l1LabelRef.object);
-      const bodyLabels = [sunLabelRef, earthLabelRef, l1LabelRef];
 
       // The other planets are context, not the subject: their labels stay hidden
       // until the cursor is near them (handled per-frame), so they don't clutter.
@@ -926,7 +930,12 @@ export function HelioCanvas({
         const hx = hover.x - rect.left;
         const hy = hover.y - rect.top;
 
-        for (const ref of bodyLabels) ref.object.visible = labelsOn;
+        sunLabelRef.object.visible = labelsOn && controls.interactionMode !== 'inspect';
+        // Earth and L1 are visually inseparable in the log-compressed system
+        // view. In L1 inspection the planet itself remains visible while the
+        // one useful label identifies the upstream monitor without collision.
+        earthLabelRef.object.visible = labelsOn && controls.interactionMode !== 'inspect';
+        l1LabelRef.object.visible = labelsOn && controls.interactionMode === 'inspect';
 
         // Other planets: revealed only when the cursor is near their dot.
         for (const { ref, container } of planetLabels) {

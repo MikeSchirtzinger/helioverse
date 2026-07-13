@@ -127,8 +127,8 @@ export function PredictionLab({
             </div>
             <dl>
               <div><dt>Arrival</dt><dd>{utc(cme.enlilShockIso)}</dd></div>
-              <div><dt>Peak Kp</dt><dd>{cme.predictedKp == null ? 'unavailable' : `up to ${cme.predictedKp}`}</dd></div>
-              <div><dt>Earth path</dt><dd>{cme.isEarthDirected ? 'glancing/direct impact flagged' : 'not flagged'}</dd></div>
+              <div><dt>Possible Kp</dt><dd>{cme.predictedKpRange == null ? 'unavailable' : cme.predictedKpRange.min === cme.predictedKpRange.max ? `${cme.predictedKpRange.max} · scenario` : `${cme.predictedKpRange.min}–${cme.predictedKpRange.max} · scenarios`}</dd></div>
+              <div><dt>Earth path</dt><dd>{cme.earthImpactClassification === 'unavailable' ? 'run unavailable' : cme.earthImpactClassification === 'none' ? 'no Earth ETA in run' : `${cme.earthImpactClassification} impact`}</dd></div>
             </dl>
             <p><span className="hx-prov hx-prov--modelled">modelled</span> WSA–ENLIL output; speed and direction originate in measured DONKI analysis.</p>
           </article>

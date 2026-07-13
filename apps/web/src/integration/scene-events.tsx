@@ -7,6 +7,7 @@
 import { formatUtc } from './format';
 import { JUNE_2026_STORM, cmeKineticEnergyJ, type StormCme, type StormFlare } from './storm-scenario';
 import { liveCmeKineticEnergyJ, type LiveCmeView } from '@/scene/live-cmes';
+import type { DonkiFlare } from '@/scene/donki-feeds';
 import { EruptionSnapshot } from './EruptionSnapshot';
 
 const isoOf = (unix: number): string => new Date(unix * 1000).toISOString().replace('.000Z', 'Z');
@@ -20,6 +21,24 @@ const speedClassLabel = (speedClass: string): string => ({
   R: 'rapid (2,000–2,999 km/s)',
   ER: 'extreme (≥3,000 km/s)',
 })[speedClass.toUpperCase()] ?? 'classified by DONKI';
+
+function earthPathLabel(view: LiveCmeView): string {
+  switch (view.donki.earthImpactClassification) {
+    case 'direct': return 'direct Earth shock forecast';
+    case 'glancing': return 'glancing Earth shock forecast';
+    case 'minor': return 'minor Earth impact forecast';
+    case 'none': return 'no Earth shock ETA in this run';
+    case 'unavailable': return 'WSA-Enlil run unavailable';
+  }
+}
+
+function disturbanceWindow(view: LiveCmeView): string {
+  if (!view.arrivalIso) return '—';
+  const start = Date.parse(view.arrivalIso);
+  const durationHours = view.donki.enlilDurationH;
+  if (!Number.isFinite(start) || durationHours == null || durationHours <= 0) return formatUtc(view.arrivalIso);
+  return `${formatUtc(view.arrivalIso)} → ${formatUtc(new Date(start + durationHours * 3_600_000).toISOString())}`;
+}
 
 export function StormEventsList({
   selectedId,
@@ -146,6 +165,45 @@ export function FlareDetail({
   );
 }
 
+/** Per-flare detail for a selected live DONKI/GOES observation. */
+export function LiveFlareDetail({ flare }: { flare: DonkiFlare }) {
+  const eventIso = flare.peakTime ?? flare.beginTime ?? flare.time;
+  const hasEventTime = Number.isFinite(Date.parse(eventIso));
+  const flareLabel = flare.classType ? `${flare.classType} solar flare` : 'Solar flare';
+
+  return (
+    <div className="hv-event-detail" aria-label={`${flareLabel} details`}>
+      <header>
+        <span className="hv-event-dot" style={{ background: '#ffd24a' }} aria-hidden="true" />
+        <h3>{flareLabel}</h3>
+      </header>
+      {hasEventTime ? (
+        <EruptionSnapshot dateIso={eventIso} label={flareLabel} kind="flare" />
+      ) : (
+        <p className="hv-detail-note" role="status">
+          DONKI did not provide a usable event time, so verified event imagery cannot be requested.
+        </p>
+      )}
+      <dl className="hv-detail-grid">
+        <Detail term="Class (GOES)" value={flare.classType ?? '—'} />
+        <Detail term="Source location" value={flare.sourceLocation ?? '—'} />
+        <Detail term="Active region" value={flare.activeRegionNum == null ? '—' : `AR ${flare.activeRegionNum}`} />
+        <Detail term="Onset" value={flare.beginTime ? formatUtc(flare.beginTime) : '—'} />
+        <Detail term="Peak" value={flare.peakTime ? formatUtc(flare.peakTime) : '—'} />
+        <Detail term="End" value={flare.endTime ? formatUtc(flare.endTime) : '—'} />
+      </dl>
+      <p className="hv-detail-note">
+        Class, timing, source location and active region are observed fields from the DONKI solar-flare record and GOES X-ray event report.
+      </p>
+      {flare.link ? (
+        <a className="hv-detail-link" href={flare.link} target="_blank" rel="noreferrer">
+          → open DONKI flare record
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 /** Live DONKI CME list for the right rail. */
 export function LiveCmeList({
   views,
@@ -206,6 +264,11 @@ export function LiveCmeDetail({ view }: { view: LiveCmeView }) {
   const lat = e.sourcePosition.lat_deg;
   const lon = e.sourcePosition.lon_deg;
   const sourceLocation = donki.sourceLocation.trim() || '—';
+  const possibleKp = donki.predictedKpRange
+    ? donki.predictedKpRange.min === donki.predictedKpRange.max
+      ? `${donki.predictedKpRange.max} · model scenario`
+      : `${donki.predictedKpRange.min}–${donki.predictedKpRange.max} · model scenarios`
+    : '—';
   return (
     <div className="hv-event-detail" aria-label="Live CME details">
       <header>
@@ -222,14 +285,20 @@ export function LiveCmeDetail({ view }: { view: LiveCmeView }) {
         <Detail term="Source location" value={sourceLocation} />
         <Detail term="Active region" value={donki.activeRegion == null ? '—' : `AR ${donki.activeRegion}`} />
         {donki.speedClass ? <Detail term="Speed class" value={speedClassLabel(donki.speedClass)} /> : null}
-        <Detail term="Earth path (modelled)" value={!donki.hasEnlilRun ? 'unavailable' : view.earthDirected ? 'impact flagged by WSA-Enlil' : 'impact not flagged by WSA-Enlil'} />
-        <Detail term="Predicted Kp" value={view.predictedKp != null ? `≤ ${view.predictedKp} (WSA-Enlil)` : '—'} />
+        <Detail term="Earth path (modelled)" value={earthPathLabel(view)} />
+        <Detail term="Possible Kp" value={possibleKp} />
         <Detail term="Predicted arrival" value={view.arrivalIso ? formatUtc(view.arrivalIso) : '—'} />
+        <Detail term="Disturbed interval" value={disturbanceWindow(view)} />
+        <Detail term="Model run completed" value={donki.enlilModelCompletionIso ? formatUtc(donki.enlilModelCompletionIso) : '—'} />
       </dl>
       <p className="hv-detail-note">
-        {!donki.hasEnlilRun ? 'No WSA-Enlil run is available' : view.earthDirected ? 'WSA-Enlil models an Earth impact' : 'WSA-Enlil does not model an Earth impact'}
-        {view.coneHitsEarth ? '; its measured cone geometrically contains Earth.' : '; its measured cone misses Earth.'}
-        {view.predictedKp != null ? ` Enlil predicts up to Kp ${view.predictedKp}.` : ''}
+        {donki.earthImpactClassification === 'unavailable'
+          ? 'No WSA-Enlil run is available.'
+          : donki.earthImpactClassification === 'none'
+            ? 'This WSA-Enlil run carries no Earth shock ETA; that is not proof that every part of the CME misses Earth.'
+            : `WSA-Enlil supplies a ${donki.earthImpactClassification} Earth shock forecast.`}{' '}
+        The measured cone {view.coneHitsEarth ? 'contains' : 'does not contain'} the Sun–Earth direction.
+        {donki.predictedKpRange ? ` Possible Kp spans ${donki.predictedKpRange.min}–${donki.predictedKpRange.max} across the modelled IMF-orientation scenarios; Bz is not known until measured upstream.` : ''}
       </p>
       {/* Derived-from-width estimates are visually de-ranked into their own group. */}
       <div className="hv-detail-estimates">
@@ -241,12 +310,17 @@ export function LiveCmeDetail({ view }: { view: LiveCmeView }) {
         </dl>
       </div>
       <p className="hv-detail-note">
-        Speed, width and apex direction are measured by NASA DONKI CME Analysis. Arrival and predicted Kp are
-        modelled by WSA-Enlil. Mass, ions and energy are estimated from angular width because DONKI carries no mass.
+        Speed, width and apex direction are measured by NASA DONKI CME Analysis. Arrival, disturbance duration and
+        possible Kp are modelled by WSA-Enlil. Mass, ions and energy are estimated from angular width because DONKI carries no mass.
       </p>
       {donki.link ? (
         <a className="hv-detail-link" href={donki.link} target="_blank" rel="noreferrer">
           → open DONKI record
+        </a>
+      ) : null}
+      {donki.enlilRunLink ? (
+        <a className="hv-detail-link" href={donki.enlilRunLink} target="_blank" rel="noreferrer">
+          → open WSA-Enlil model run
         </a>
       ) : null}
     </div>

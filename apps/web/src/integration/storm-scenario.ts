@@ -36,6 +36,8 @@ export type Confidence = 'high' | 'medium';
 
 export interface StormMilestone {
   id: string;
+  /** Flare or CME opened when the milestone is selected. */
+  eventId?: string;
   label: string;
   timeIso: string;
   kind: MilestoneKind;
@@ -218,14 +220,14 @@ export const JUNE_2026_STORM: StormScenario = {
   ],
   cmes: [cme1, cme2, cme3],
   milestones: [
-    { id: 'flr-m93', label: 'M9.3 flare → CME-1', timeIso: '2026-06-03T01:36:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — M9.3, R2 blackout. Launches CME-1 (measured 1220 km/s, apex N14).' },
-    { id: 'flr-m77', label: 'M7.7 flare → CME-2', timeIso: '2026-06-03T07:00:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — M7.7, R2. Launches CME-2 (1474 km/s) aimed high-north (apex N52) — only glances Earth.' },
-    { id: 'flr-x10', label: 'X1.0 flare → CME-3', timeIso: '2026-06-03T11:28:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — X1.0, R3 strong. Launches the fast partial-halo CME-3 (1433 km/s, apex N32).' },
-    { id: 'predicted-1', label: 'CME-1 predicted arrival', timeIso: '2026-06-05T01:13:00Z', kind: 'predicted', confidence: 'high', detail: 'WSA-Enlil shock for CME-1 — arrives first, ~6 h ahead of CME-3. Predicted Kp up to 7 (G3).' },
-    { id: 'actual', label: 'Shock hits L1', timeIso: ACTUAL_ETA, kind: 'actual', confidence: 'high', detail: 'Observed interplanetary shock at L1 (DONKI IPS), Jun 5 04:23 — start of the compound storm.' },
-    { id: 'predicted-3', label: 'CME-3 predicted arrival', timeIso: PREDICTED_ETA, kind: 'predicted', confidence: 'high', detail: 'WSA-Enlil shock for the X1.0 CME-3 (07:45). The two Earth-bound CMEs compound at L1.' },
-    { id: 'storm-peak', label: 'G2 storm peak (Kp 6.33)', timeIso: '2026-06-05T18:00:00Z', kind: 'storm', confidence: 'high', detail: 'NOAA GST: observed peak Kp 6.33 (G2 Moderate) — under the G3 watch from Enlil.' },
-    { id: 'mars-orbit', label: 'Fronts cross Mars’ orbit', timeIso: '2026-06-06T13:00:00Z', kind: 'cme', confidence: 'medium', detail: 'The ejecta keep moving past Earth; CME-1/CME-3 reach Mars’ orbital distance (1.52 AU) on Jun 6.' },
+    { id: 'flr-m93', eventId: 'flr-m93', label: 'M9.3 flare → CME-1', timeIso: '2026-06-03T01:36:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — M9.3, R2 blackout. Launches CME-1 (measured 1220 km/s, apex N14).' },
+    { id: 'flr-m77', eventId: 'flr-m77', label: 'M7.7 flare → CME-2', timeIso: '2026-06-03T07:00:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — M7.7, R2. Launches CME-2 (1474 km/s) aimed high-north (apex N52) — only glances Earth.' },
+    { id: 'flr-x10', eventId: 'flr-x10', label: 'X1.0 flare → CME-3', timeIso: '2026-06-03T11:28:00Z', kind: 'flare', confidence: 'high', detail: 'AR 4455 — X1.0, R3 strong. Launches the fast partial-halo CME-3 (1433 km/s, apex N32).' },
+    { id: 'predicted-1', eventId: cme1.id, label: 'CME-1 predicted arrival', timeIso: '2026-06-05T01:13:00Z', kind: 'predicted', confidence: 'high', detail: 'WSA-Enlil shock for CME-1 — arrives first, ~6 h ahead of CME-3. Predicted Kp up to 7 (G3).' },
+    { id: 'actual', eventId: cme1.id, label: 'Shock hits L1', timeIso: ACTUAL_ETA, kind: 'actual', confidence: 'high', detail: 'Observed interplanetary shock at L1 (DONKI IPS), Jun 5 04:23 — start of the compound storm.' },
+    { id: 'predicted-3', eventId: cme3.id, label: 'CME-3 predicted arrival', timeIso: PREDICTED_ETA, kind: 'predicted', confidence: 'high', detail: 'WSA-Enlil shock for the X1.0 CME-3 (07:45). The two Earth-bound CMEs compound at L1.' },
+    { id: 'storm-peak', eventId: cme3.id, label: 'G2 storm peak (Kp 6.33)', timeIso: '2026-06-05T18:00:00Z', kind: 'storm', confidence: 'high', detail: 'NOAA GST: observed peak Kp 6.33 (G2 Moderate) — under the G3 watch from Enlil.' },
+    { id: 'mars-orbit', eventId: cme3.id, label: 'Fronts cross Mars’ orbit', timeIso: '2026-06-06T13:00:00Z', kind: 'cme', confidence: 'medium', detail: 'The ejecta keep moving past Earth; CME-1/CME-3 reach Mars’ orbital distance (1.52 AU) on Jun 6.' },
   ],
   caveats: [
     'CME speeds (1220 / 1474 / 1433 km/s), apex directions and angular widths are MEASURED in NASA DONKI CME Analysis. Arrival times and predicted Kp are MODELLED by WSA-Enlil.',

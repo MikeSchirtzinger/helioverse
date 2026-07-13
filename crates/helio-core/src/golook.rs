@@ -40,6 +40,7 @@ pub struct GoLookScore {
 ///
 /// PINNED: clamp((−6 − sun_alt_deg) / 12, 0, 1)
 /// Vectors: contracts/fixtures/vectors/golook.json, function "darkness_factor" (1e-9).
+#[must_use]
 pub fn darkness_factor(sun_alt_deg: f64) -> f64 {
     let factor = (-6.0 - sun_alt_deg) / 12.0;
     factor.clamp(0.0, 1.0)
@@ -49,12 +50,11 @@ pub fn darkness_factor(sun_alt_deg: f64) -> f64 {
 ///
 /// PINNED semantics — see contracts/wasm-api/helio_core_api.rs.
 /// Vectors: contracts/fixtures/vectors/golook.json, function "go_look" (1e-9 rel on score).
+#[must_use]
 pub fn go_look(inputs: &GoLookInputs) -> GoLookScore {
     let darkness = darkness_factor(inputs.sun_alt_deg);
-    let moon_factor = 1.0
-        - 0.6
-            * inputs.moon_illum_frac
-            * inputs.moon_alt_deg.to_radians().sin().clamp(0.0, 1.0);
+    let moon_factor =
+        1.0 - 0.6 * inputs.moon_illum_frac * inputs.moon_alt_deg.to_radians().sin().clamp(0.0, 1.0);
     let clear_fcst = (1.0
         - (0.7 * inputs.cloud_low_consensus + 0.3 * inputs.cloud_total_consensus))
         .clamp(0.0, 1.0);

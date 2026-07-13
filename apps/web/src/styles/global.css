@@ -267,6 +267,7 @@ button, input {
 
 /* CME labels are interactive; the selected one is brightened + bordered. */
 .hv-label--cme {
+  min-block-size: 44px;
   cursor: pointer;
   color: var(--hv-text);
   border-color: color-mix(in oklch, var(--label-accent), transparent 50%);
@@ -342,6 +343,39 @@ button, input {
   background: linear-gradient(180deg, color-mix(in oklch, var(--hv-panel-strong), transparent 14%), oklch(7% 0.024 266 / 0.96));
 }
 
+.hv-tb-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hv-tb-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.hv-tb-heading span {
+  color: var(--hv-gold);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hv-tb-heading strong {
+  color: var(--hv-text);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.hv-tb-heading > time {
+  color: var(--hv-muted);
+  font-family: var(--hv-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .hv-tb-controls {
   display: flex;
   align-items: center;
@@ -401,6 +435,26 @@ button, input {
     0 0 10px color-mix(in oklch, var(--hv-cyan), transparent 62%);
 }
 
+.hv-tb-monitor-state {
+  min-block-size: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--hv-aurora);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hv-tb-monitor-state i {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
 .hv-tb-readout {
   margin-left: auto;
   display: flex;
@@ -428,6 +482,77 @@ button, input {
   font-style: normal;
   font-weight: 600;
 }
+
+.hv-tb-event-strip {
+  display: flex;
+  gap: 6px;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+  padding-block-end: 2px;
+}
+
+.hv-tb-event-strip::-webkit-scrollbar { display: none; }
+
+.hv-canvas-timebar--live .hv-tb-track { display: none; }
+
+.hv-tb-event {
+  flex: 0 0 174px;
+  min-block-size: 48px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: center;
+  gap: 2px 8px;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in oklch, var(--hv-line), transparent 42%);
+  border-radius: 6px;
+  color: var(--hv-text);
+  background: color-mix(in oklch, var(--hv-void-2), transparent 10%);
+  scroll-snap-align: start;
+  text-align: start;
+  cursor: pointer;
+}
+
+.hv-tb-event > span {
+  color: var(--hv-muted);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hv-tb-event > strong {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hv-tb-event > time {
+  grid-column: 1 / -1;
+  color: var(--hv-muted);
+  font-family: var(--hv-mono);
+  font-size: 8px;
+}
+
+.hv-tb-event:hover,
+.hv-tb-event:focus-visible,
+.hv-tb-event.is-current {
+  outline: none;
+  border-color: color-mix(in oklch, var(--hv-cyan), transparent 36%);
+  background: color-mix(in oklch, var(--hv-cyan), var(--hv-void-2) 90%);
+}
+
+.hv-tb-event--cme { border-block-start-color: var(--hv-orange); }
+.hv-tb-event--flare { border-block-start-color: var(--hv-gold); }
+.hv-tb-event--predicted { border-block-start-color: oklch(70% 0.16 300); }
+.hv-tb-event--actual { border-block-start-color: var(--hv-cyan); }
+.hv-tb-event--storm { border-block-start-color: var(--hv-danger); }
+.hv-tb-event--aurora { border-block-start-color: var(--hv-aurora); }
 
 .hv-tb-track {
   position: relative;
@@ -515,18 +640,10 @@ button, input {
   padding: 0;
   border: 0;
   border-radius: 3px;
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none;
   opacity: 0.85;
   background: var(--hv-cyan);
   box-shadow: 0 0 8px color-mix(in oklch, var(--hv-cyan), transparent 50%);
-}
-
-.hv-tb-tick:hover,
-.hv-tb-tick:focus-visible {
-  opacity: 1;
-  outline: none;
-  transform: scaleY(1.25);
 }
 
 .hv-tb-tick--flare { background: var(--hv-gold); box-shadow: 0 0 8px color-mix(in oklch, var(--hv-gold), transparent 45%); }
@@ -570,7 +687,7 @@ button, input {
   align-items: center;
   gap: 9px;
   width: 100%;
-  min-height: 36px;
+  min-height: 44px;
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 7px 9px;
@@ -677,6 +794,9 @@ button, input {
 
 .hv-detail-link {
   justify-self: start;
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid color-mix(in oklch, var(--hv-cyan), transparent 40%);
   border-radius: 999px;
   padding: 6px 11px;
@@ -691,6 +811,99 @@ button, input {
 .hv-detail-link:focus-visible {
   color: var(--hv-text);
   outline: none;
+}
+
+.hv-erupt-snap {
+  min-inline-size: 0;
+}
+
+.hv-erupt-snap__rail {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: none;
+  padding-block-end: 4px;
+}
+
+.hv-erupt-snap__rail::-webkit-scrollbar { display: none; }
+.hv-erupt-snap__rail:focus-visible {
+  outline: 2px solid var(--hv-cyan, #76d9ef);
+  outline-offset: 3px;
+}
+
+.hv-donki-flare-row:hover {
+  background: oklch(70% 0.12 200 / 0.08) !important;
+}
+
+.hv-donki-flare-row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--hv-cyan, #76d9ef);
+  outline-offset: -3px;
+}
+
+.hv-erupt-snap__card {
+  flex: 0 0 min(82%, 280px);
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.hv-erupt-snap__frame {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--hv-line), transparent 36%);
+  border-radius: 7px;
+  background: oklch(7% 0.02 266);
+}
+
+.hv-erupt-snap__image {
+  inline-size: 100%;
+  block-size: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.hv-erupt-snap__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 7px;
+  padding: 16px;
+  color: var(--hv-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.hv-erupt-snap__status--unavailable span:first-child {
+  color: var(--hv-gold);
+  font-size: 22px;
+  opacity: 0.6;
+}
+
+.hv-erupt-snap__caption {
+  display: grid;
+  gap: 2px;
+  color: var(--hv-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.hv-erupt-snap__caption strong {
+  color: var(--hv-text);
+  font-size: 10px;
+}
+
+.hv-erupt-snap__caption time,
+.hv-erupt-snap__caption small {
+  font-family: var(--hv-mono);
+  font-size: 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {

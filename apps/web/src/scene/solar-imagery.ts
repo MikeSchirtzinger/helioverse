@@ -29,6 +29,7 @@ function screenshotEndpoint(): string {
 /** Our observation channels → Helioviewer source IDs (verified live). */
 export const SOLAR_FILTER_SOURCE_IDS: Record<SolarFilter, number> = {
   visible: 18, // SDO/HMI continuum (white-light photosphere)
+  sdo131: 9, // SDO/AIA 131 Å
   sdo304: 13, // SDO/AIA 304 Å
   sdo171: 10, // SDO/AIA 171 Å
   sdo193: 11, // SDO/AIA 193 Å

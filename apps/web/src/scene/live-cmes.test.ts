@@ -20,8 +20,15 @@ function cme(index: number, startUnix: number): DonkiCme {
     time21_5: null,
     enlilShockIso: null,
     enlilDurationH: null,
+    enlilModelCompletionIso: null,
+    enlilRunLink: null,
+    enlilCmeIds: [],
     hasEnlilRun: false,
-    isEarthDirected: index % 2 === 0,
+    earthImpactClassification: 'unavailable',
+    isEarthGlancingBlow: false,
+    isEarthMinorImpact: false,
+    isEarthDirected: false,
+    predictedKpRange: null,
     predictedKp: null,
     linkedEventIds: [],
     estMass_kg: 1e12,
@@ -41,5 +48,23 @@ describe('live CME display domain', () => {
     expect(scene?.totalDetected).toBe(8);
     expect(scene?.shown).toBe(4);
     expect(scene?.renderedViews.some((view) => view.canvas.event.id === departed.activityID)).toBe(false);
+  });
+
+  it('keeps a real timeline anchor when every ledger event has passed the display domain', () => {
+    const now = Date.parse('2026-07-11T12:00:00Z') / 1000;
+    const departed = [cme(98, now - 7 * DAY_S), cme(99, now - 6 * DAY_S)];
+    const scene = buildLiveScene(departed, now, now - 7 * DAY_S);
+
+    expect(scene).not.toBeNull();
+    expect(scene?.views).toHaveLength(2);
+    expect(scene?.renderedViews).toHaveLength(0);
+    expect(scene?.cmes).toHaveLength(0);
+    expect(scene?.primaryId).toBeNull();
+    expect(scene?.primaryEvent).toBeNull();
+    expect(scene?.timelineAnchorId).toBe(scene?.timelineAnchorEvent.id);
+    expect(scene?.views.some((view) => view.canvas.event.id === scene?.timelineAnchorId)).toBe(true);
+    expect(scene?.milestones.map((milestone) => milestone.eventId)).toEqual(
+      expect.arrayContaining(departed.map((event) => event.activityID)),
+    );
   });
 });

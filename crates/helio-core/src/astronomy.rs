@@ -20,9 +20,7 @@ fn norm360(deg: f64) -> f64 {
 
 fn gmst_rad(jd: f64) -> f64 {
     let t = (jd - 2_451_545.0) / 36_525.0;
-    let deg = 280.460_618_37
-        + 360.985_647_366_29 * (jd - 2_451_545.0)
-        + 0.000_387_933 * t * t
+    let deg = 280.460_618_37 + 360.985_647_366_29 * (jd - 2_451_545.0) + 0.000_387_933 * t * t
         - t * t * t / 38_710_000.0;
     norm360(deg) * DEG
 }
@@ -66,7 +64,8 @@ fn moon_ra_dec_lambda_beta_dist(jd: f64) -> (f64, f64, f64, f64, f64) {
     let mean_anomaly_deg = norm360(115.365_4 + 13.064_992_950_9 * d);
     let mean_anomaly = mean_anomaly_deg * DEG;
 
-    let mut ecc_anomaly = mean_anomaly + ecc * mean_anomaly.sin() * (1.0 + ecc * mean_anomaly.cos());
+    let mut ecc_anomaly =
+        mean_anomaly + ecc * mean_anomaly.sin() * (1.0 + ecc * mean_anomaly.cos());
     for _ in 0..3 {
         ecc_anomaly -= (ecc_anomaly - ecc * ecc_anomaly.sin() - mean_anomaly)
             / (1.0 - ecc * ecc_anomaly.cos());
@@ -92,9 +91,7 @@ fn moon_ra_dec_lambda_beta_dist(jd: f64) -> (f64, f64, f64, f64, f64) {
     let f = norm360(lm - n_deg);
     let sin_deg = |x: f64| (x * DEG).sin();
 
-    let lon_deg = lon * RAD
-        - 1.274 * sin_deg(mm - 2.0 * elong)
-        + 0.658 * sin_deg(2.0 * elong)
+    let lon_deg = lon * RAD - 1.274 * sin_deg(mm - 2.0 * elong) + 0.658 * sin_deg(2.0 * elong)
         - 0.186 * sin_deg(ms)
         - 0.059 * sin_deg(2.0 * mm - 2.0 * elong)
         - 0.057 * sin_deg(mm - 2.0 * elong + ms)
@@ -128,7 +125,14 @@ fn moon_ra_dec_lambda_beta_dist(jd: f64) -> (f64, f64, f64, f64, f64) {
     (ra, dec, lambda, beta, dist_er)
 }
 
-fn topocentric_moon_altitude_deg(lat_deg: f64, lon_deg: f64, jd: f64, ra: f64, dec: f64, dist_er: f64) -> f64 {
+fn topocentric_moon_altitude_deg(
+    lat_deg: f64,
+    lon_deg: f64,
+    jd: f64,
+    ra: f64,
+    dec: f64,
+    dist_er: f64,
+) -> f64 {
     let geocentric_alt = equatorial_altitude_deg(lat_deg, lon_deg, jd, ra, dec) * DEG;
     let parallax = (1.0 / dist_er).asin();
     (geocentric_alt - parallax * geocentric_alt.cos()) * RAD
@@ -138,12 +142,14 @@ fn topocentric_moon_altitude_deg(lat_deg: f64, lon_deg: f64, jd: f64, ra: f64, d
 ///
 /// ACCURACY CONTRACT (vs anchors in contracts/fixtures/vectors/astronomy.json):
 /// sun_alt ±0.3°, moon_alt ±0.5°, moon_illum ±0.02. Refraction ignored.
+#[must_use]
 pub fn sky_state(lat_deg: f64, lon_deg: f64, t_unix: f64) -> SkyState {
     let jd = unix_to_julian_day(t_unix);
     let (sun_ra, sun_dec, sun_lambda) = sun_ra_dec_lambda(jd);
     let sun_alt_deg = equatorial_altitude_deg(lat_deg, lon_deg, jd, sun_ra, sun_dec);
 
-    let (moon_ra, moon_dec, moon_lambda, moon_beta, moon_dist_er) = moon_ra_dec_lambda_beta_dist(jd);
+    let (moon_ra, moon_dec, moon_lambda, moon_beta, moon_dist_er) =
+        moon_ra_dec_lambda_beta_dist(jd);
     let moon_alt_deg =
         topocentric_moon_altitude_deg(lat_deg, lon_deg, jd, moon_ra, moon_dec, moon_dist_er);
 

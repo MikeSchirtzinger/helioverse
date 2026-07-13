@@ -134,7 +134,7 @@ export type CanvasRendererPath = 'webgpu' | 'webgl2' | 'none' | 'initializing';
 export type CanvasInteractionMode = 'solar-focus' | 'orbit' | 'inspect' | 'follow-event' | 'earth-impact' | 'magnetosphere';
 
 /** NASA/SWPC-style solar observation channels the Sun can be rendered through. */
-export type SolarFilter = 'visible' | 'sdo304' | 'sdo171' | 'sdo193' | 'sdo211' | 'magnetogram';
+export type SolarFilter = 'visible' | 'sdo131' | 'sdo304' | 'sdo171' | 'sdo193' | 'sdo211' | 'magnetogram';
 
 export interface HelioCanvasCapability {
   path: CanvasRendererPath;
@@ -241,12 +241,13 @@ export const CANVAS_INTERACTION_MODES: Array<{ mode: CanvasInteractionMode; labe
 ];
 
 export const SOLAR_FILTERS: Array<{ id: SolarFilter; label: string; hint: string }> = [
-  { id: 'visible', label: 'Visible', hint: 'White-light photosphere — the Sun as the eye sees it.' },
-  { id: 'sdo304', label: '304 Å', hint: 'SDO/AIA 304 Å — chromosphere & transition region (~50,000 K).' },
-  { id: 'sdo171', label: '171 Å', hint: 'SDO/AIA 171 Å — quiet corona & coronal loops (~600,000 K).' },
-  { id: 'sdo193', label: '193 Å', hint: 'SDO/AIA 193 Å — hotter corona & flare plasma (~1.2 MK).' },
-  { id: 'sdo211', label: '211 Å', hint: 'SDO/AIA 211 Å — active-region corona (~2 MK).' },
-  { id: 'magnetogram', label: 'Magnetogram', hint: 'SDO/HMI line-of-sight magnetic field — black/white polarity.' },
+  { id: 'visible', label: 'Sunspots · HMI', hint: 'SDO/HMI continuum intensity — the photosphere and sunspots, not a natural-colour photograph.' },
+  { id: 'sdo131', label: 'Flares · 131 Å', hint: 'SDO/AIA 131 Å — hot flaring plasma and cooler transition-region emission.' },
+  { id: 'sdo304', label: 'Prominences · 304 Å', hint: 'SDO/AIA 304 Å — chromosphere and transition region around 50,000 K.' },
+  { id: 'sdo171', label: 'Coronal loops · 171 Å', hint: 'SDO/AIA 171 Å — quiet corona and loops around 600,000 K.' },
+  { id: 'sdo193', label: 'Corona & holes · 193 Å', hint: 'SDO/AIA 193 Å — 1.3 MK corona and coronal holes, plus much hotter flare plasma.' },
+  { id: 'sdo211', label: 'Active corona · 211 Å', hint: 'SDO/AIA 211 Å — active-region corona around 2 MK.' },
+  { id: 'magnetogram', label: 'Magnetic field · HMI', hint: 'SDO/HMI line-of-sight photospheric magnetic-field polarity.' },
 ];
 
 export const HELIO_CANVAS_CLASSNAMES = {

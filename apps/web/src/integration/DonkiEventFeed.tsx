@@ -36,6 +36,7 @@ interface FeedRow {
   label: string;
   severity: string;    // human-readable: classType for FLR, location for IPS, Kp for GST
   linkedEventIds: string[];
+  flare?: DonkiFlare;
 }
 
 function flrToRow(f: DonkiFlare): FeedRow {
@@ -47,6 +48,7 @@ function flrToRow(f: DonkiFlare): FeedRow {
     label: f.label,
     severity: f.classType ?? 'unknown class',
     linkedEventIds: f.linkedEventIds ?? [],
+    flare: f,
   };
 }
 
@@ -129,14 +131,30 @@ function badgeStyle(kind: EventKind): CSSProperties {
   };
 }
 
-const rowStyle: CSSProperties = {
+const rowContentStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
+  minWidth: 0,
   gap: 10,
   padding: '7px 12px',
-  borderBottom: '1px solid oklch(70% 0.03 240 / 0.12)',
   fontSize: 12,
   color: 'var(--hv-text)',
+};
+
+const rowBorderStyle: CSSProperties = {
+  borderBottom: '1px solid oklch(70% 0.03 240 / 0.12)',
+};
+
+const interactiveRowStyle: CSSProperties = {
+  ...rowContentStyle,
+  width: '100%',
+  minHeight: 44,
+  border: 0,
+  borderRadius: 0,
+  background: 'transparent',
+  font: 'inherit',
+  textAlign: 'left',
+  cursor: 'pointer',
 };
 
 const timeStyle: CSSProperties = {
@@ -144,7 +162,10 @@ const timeStyle: CSSProperties = {
   fontFamily: 'var(--hv-mono)',
   fontSize: 11,
   flexShrink: 0,
-  minWidth: 160,
+  width: 'clamp(105px, 28vw, 160px)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 };
 
 const severityStyle: CSSProperties = {
@@ -152,7 +173,11 @@ const severityStyle: CSSProperties = {
   color: 'var(--hv-muted)',
   fontFamily: 'var(--hv-mono)',
   fontSize: 11,
-  flexShrink: 0,
+  maxWidth: 84,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  flexShrink: 1,
 };
 
 const chainStyle: CSSProperties = {
@@ -171,9 +196,21 @@ export interface DonkiEventFeedProps {
   gst: DonkiGst[] | null;
   loading: boolean;
   error: string | null;
+  /** Makes only real FLR rows selectable; other ledger rows stay informational. */
+  onSelectFlare?: (flare: DonkiFlare) => void;
+  /** Optional selection state announced by selectable FLR buttons. */
+  selectedFlareId?: string | null;
 }
 
-export function DonkiEventFeed({ flares, ips, gst, loading, error }: DonkiEventFeedProps) {
+export function DonkiEventFeed({
+  flares,
+  ips,
+  gst,
+  loading,
+  error,
+  onSelectFlare,
+  selectedFlareId,
+}: DonkiEventFeedProps) {
   const rows: FeedRow[] = [
     ...(flares ?? []).map(flrToRow),
     ...(ips ?? []).map(ipsToRow),
@@ -245,12 +282,12 @@ export function DonkiEventFeed({ flares, ips, gst, loading, error }: DonkiEventF
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {rows.map((row) => {
             const downstream = linkedKinds(row, idMap);
-            return (
-              <li key={row.id} style={rowStyle}>
+            const contents = (
+              <>
                 <span style={badgeStyle(row.kind)}>{row.kind}</span>
                 <span style={timeStyle}>{formatUtcShort(row.time)}</span>
                 <span
-                  style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   title={row.label}
                 >
                   {row.label}
@@ -267,6 +304,34 @@ export function DonkiEventFeed({ flares, ips, gst, loading, error }: DonkiEventF
                   </span>
                 )}
                 <span style={severityStyle}>{row.severity}</span>
+              </>
+            );
+
+            const flare = row.flare;
+            if (onSelectFlare && flare) {
+              const selected = selectedFlareId === row.id;
+              return (
+                <li key={row.id} style={rowBorderStyle}>
+                  <button
+                    type="button"
+                    className="hv-donki-flare-row"
+                    style={{
+                      ...interactiveRowStyle,
+                      background: selected ? 'oklch(70% 0.12 200 / 0.12)' : 'transparent',
+                    }}
+                    aria-label={`Open details for ${row.label}, ${formatUtcShort(row.time)}`}
+                    aria-pressed={selectedFlareId === undefined ? undefined : selected}
+                    onClick={() => onSelectFlare(flare)}
+                  >
+                    {contents}
+                  </button>
+                </li>
+              );
+            }
+
+            return (
+              <li key={row.id} style={{ ...rowContentStyle, ...rowBorderStyle }}>
+                {contents}
               </li>
             );
           })}

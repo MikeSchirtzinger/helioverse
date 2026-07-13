@@ -4,10 +4,15 @@ use crate::error::CoreError;
 
 /// Ballistic L1→Earth delay from the measured bulk speed.
 ///
-/// PINNED: delay_s = distance / speed. Exact.
+/// PINNED: `delay_s = distance / speed`. Exact.
 /// VALIDITY: distance in [1.2e6, 1.8e6] km, speed in [200.0, 3000.0] km/s.
 ///
 /// Vectors: contracts/fixtures/vectors/delay-correction.json (tolerance: exact, 1e-9 rel).
+///
+/// # Errors
+///
+/// Returns [`CoreError::OutOfRange`] when either input is non-finite or outside
+/// its documented validity range.
 pub fn l1_delay_seconds(
     spacecraft_earth_distance_km: f64,
     measured_speed_kms: f64,
@@ -26,10 +31,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_delay_simple() {
+    fn test_delay_simple() -> Result<(), CoreError> {
         // 1.5e6 km / 400 km/s = 3750 s
-        let result = l1_delay_seconds(1_500_000.0, 400.0).unwrap();
+        let result = l1_delay_seconds(1_500_000.0, 400.0)?;
         assert!((result - 3750.0).abs() < 1e-6);
+        Ok(())
     }
 
     #[test]
@@ -44,6 +50,14 @@ mod tests {
         );
         assert_eq!(
             l1_delay_seconds(1_500_000.0, 100.0),
+            Err(CoreError::OutOfRange)
+        );
+        assert_eq!(
+            l1_delay_seconds(f64::NAN, 400.0),
+            Err(CoreError::OutOfRange)
+        );
+        assert_eq!(
+            l1_delay_seconds(1_500_000.0, f64::INFINITY),
             Err(CoreError::OutOfRange)
         );
     }

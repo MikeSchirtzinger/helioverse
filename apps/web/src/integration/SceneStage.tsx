@@ -9,9 +9,8 @@
  * console shell and threaded in, so the same stage renders either the LIVE
  * DONKI feed or the labelled June-2026 replay.
  */
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { HelioCanvas } from '@/scene/HelioCanvas';
-import { ScenePopover } from './ScenePopover';
 import {
   rendererCapability,
   type AuroraGridPoint,
@@ -102,73 +101,6 @@ export function SceneStage({
 }: SceneStageProps) {
   const [capability, setCapability] = useState<HelioCanvasCapability>(() => rendererCapability('initializing'));
 
-  // The selected CME (replay or live) gets an on-canvas inspector popover pinned
-  // to its 3D position. Flares have no distinct 3D object of their own — their
-  // real source is the active region the CME beacon already sits on — so only a
-  // selected CME resolves here; a selected flare keeps its right-rail detail.
-  const selectedCme = useMemo<CanvasCme | null>(
-    () => cmes.find((c) => c.event.id === selectedId) ?? null,
-    [cmes, selectedId],
-  );
-
-  // The popover is positioned imperatively from HelioCanvas's per-frame anchor so
-  // it can follow a moving front at 60fps without re-rendering React each frame.
-  // Sizes are cached on selection/resize; the per-frame handler is pure math.
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const sizeRef = useRef({ pw: 300, ph: 380, hw: 0, hh: 0, dock: 150 });
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const wrap = popoverRef.current;
-      const host = wrap?.parentElement as HTMLElement | null;
-      if (!wrap || !host) return;
-      const card = wrap.firstElementChild as HTMLElement | null;
-      if (card) {
-        sizeRef.current.pw = card.offsetWidth;
-        sizeRef.current.ph = card.offsetHeight;
-      }
-      sizeRef.current.hw = host.clientWidth;
-      sizeRef.current.hh = host.clientHeight;
-      const dock = parseFloat(getComputedStyle(host).getPropertyValue('--hv-dock-h'));
-      if (Number.isFinite(dock)) sizeRef.current.dock = dock;
-    };
-    measure();
-    const wrap = popoverRef.current;
-    const host = wrap?.parentElement ?? null;
-    const ro = new ResizeObserver(measure);
-    if (host) ro.observe(host);
-    if (wrap) ro.observe(wrap);
-    return () => ro.disconnect();
-  }, [selectedId]);
-
-  const handleAnchor = useCallback((xPx: number, yPx: number, visible: boolean) => {
-    const wrap = popoverRef.current;
-    if (!wrap) return;
-    // Show only when the canvas reports an on-screen anchor AND content is mounted
-    // (the conditional child below renders only when a CME is selected).
-    if (!visible || !wrap.firstElementChild) {
-      if (wrap.dataset.show !== 'false') wrap.dataset.show = 'false';
-      return;
-    }
-    const { pw, ph, hw, hh, dock } = sizeRef.current;
-    const gap = 18;
-    const margin = 12;
-    // Prefer the right of the object; flip left if it would overflow the stage.
-    let flip = false;
-    let x = xPx + gap;
-    if (x + pw > hw - margin) {
-      x = xPx - gap - pw;
-      flip = true;
-    }
-    x = Math.max(margin, Math.min(x, hw - pw - margin));
-    // Centre vertically on the object, clamped under the top bar / above the dock.
-    let y = yPx - ph / 2;
-    y = Math.max(60, Math.min(y, hh - ph - (dock + 16)));
-    wrap.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
-    if (wrap.dataset.flip !== (flip ? 'true' : 'false')) wrap.dataset.flip = flip ? 'true' : 'false';
-    if (wrap.dataset.show !== 'true') wrap.dataset.show = 'true';
-  }, []);
-
   const timeUnix = Math.floor(Date.parse(valueIso) / 1000);
   const canvasControls = useMemo(
     () => ({ scaleMode: SCALE_MODE, interactionMode, solarFilter, layers, timeUnix }),
@@ -215,19 +147,10 @@ export function SceneStage({
         auroraGrid={auroraGrid}
         solarWindSpeedKms={solarWindSpeedKms}
         magnetosphereState={mag}
-        onAnchorChange={handleAnchor}
         isPlaying={isPlaying}
         freezeSolarImagery={freezeSolarImagery}
         rightRailOpen={rightRailOpen}
       />
-
-      {/* On-canvas inspector for the selected CME, pinned to its 3D position by
-          handleAnchor. Always mounted (stable ref); content + visibility track
-          the selection. The card stays interactive; the wrapper never blocks
-          canvas drags (pointer-events handled in CSS). */}
-      <div ref={popoverRef} className="hv-scene-popover-wrap" data-show="false" data-flip="false">
-        {selectedCme ? <ScenePopover cme={selectedCme} onClose={() => onSelectEvent(null)} /> : null}
-      </div>
 
       {interactionMode === 'earth-impact' && impactSummary ? (
         <div className="hv-impact-overlay" role="status">

@@ -8,9 +8,9 @@
  * the historical replay clock, because these are live outcome feeds for model
  * evaluation, not replay data.
  *
- * Refresh cadence: initial mount + every 5 minutes. DONKI data is cached
- * in-module per date-range key (see donki-feeds.ts), so the refresh only
- * re-hits the network when the window key changes (i.e. on date rollover).
+ * Refresh cadence: initial mount, then five minutes after each batch settles.
+ * The shared DONKI cache deduplicates in-flight work and uses the same response
+ * TTL, so every scheduled poll can receive same-day events and revisions.
  *
  * Returns:
  *   flares  — DonkiFlare[] | null  (null = fetch failed or still loading)
@@ -20,9 +20,9 @@
  *   error   — string | null (last error across any of the three feeds)
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DonkiCme, DonkiFlare, DonkiGst, DonkiIps } from '@/scene/donki-feeds';
-import { fetchCmeAnalyses, fetchFlares, fetchGst, fetchIps } from '@/scene/donki-feeds';
+import { DONKI_CACHE_TTL_MS, fetchCmeAnalyses, fetchFlares, fetchGst, fetchIps } from '@/scene/donki-feeds';
 
 export interface DonkiFeedsState {
   cmes: DonkiCme[] | null;
@@ -33,7 +33,6 @@ export interface DonkiFeedsState {
   error: string | null;
 }
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const WINDOW_DAYS = 30;
 
 /** Format a Date as YYYY-MM-DD (UTC). */
@@ -59,37 +58,41 @@ export function useDonkiFeeds(): DonkiFeedsState {
     error: null,
   });
 
-  // Track whether the component is still mounted to avoid stale setState calls.
-  const mountedRef = useRef(true);
-
   useEffect(() => {
-    mountedRef.current = true;
+    let cancelled = false;
 
     async function fetchAll() {
       const { startDate, endDate } = currentWindow();
       try {
-        // All three in parallel — DONKI caches per key, so no duplicate requests.
+        // All four in parallel — DONKI deduplicates in-flight work per key.
         const [cmes, flares, ips, gst] = await Promise.all([
           fetchCmeAnalyses(startDate, endDate),
           fetchFlares(startDate, endDate),
           fetchIps(startDate, endDate),
           fetchGst(startDate, endDate),
         ]);
-        if (!mountedRef.current) return;
+        if (cancelled) return;
         setState({ cmes, flares, ips, gst, loading: false, error: null });
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         setState((prev) => ({ ...prev, loading: false, error: message }));
       }
     }
 
-    void fetchAll();
-    const interval = setInterval(() => { void fetchAll(); }, POLL_INTERVAL_MS);
+    let timer = 0;
+    async function pollAfterSettlement() {
+      await fetchAll();
+      if (!cancelled) {
+        timer = window.setTimeout(() => { void pollAfterSettlement(); }, DONKI_CACHE_TTL_MS);
+      }
+    }
+
+    void pollAfterSettlement();
 
     return () => {
-      mountedRef.current = false;
-      clearInterval(interval);
+      cancelled = true;
+      window.clearTimeout(timer);
     };
   }, []);
 
