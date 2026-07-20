@@ -1,13 +1,13 @@
 {
   "schema_version": "helioverse.learning-status.v1",
-  "generated_at": "2026-07-13T08:25:40.522Z",
-  "ledger_revision": "a1a31db586129213",
+  "generated_at": "2026-07-20T08:19:19.165Z",
+  "ledger_revision": "4fd3bb9a5e254291",
   "ledger": {
-    "events": 188,
-    "outcomes": 7
+    "events": 212,
+    "outcomes": 11
   },
   "gate": {
-    "arrival": 7,
+    "arrival": 11,
     "kp": 4,
     "required": 10,
     "ready": false
