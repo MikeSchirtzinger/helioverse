@@ -14,17 +14,19 @@
  * revalidates same-day CME revisions instead of landing just before expiry.
  *
  * Returns:
- *   scene    — LiveScene | null  (null = quiet Sun, still loading, or fetch failed)
+ *   observations — every live DONKI record, including incomplete 3D analyses
+ *   scene    — LiveScene | null  (null = no renderable CME or fetch failed)
  *   loading  — true while the first fetch is in-flight
  *   error    — string | null
  *   windowLabel — human "Jun 09 → Jun 16" for provenance
  */
 
 import { useEffect, useState } from 'react';
-import { DONKI_CACHE_TTL_MS, fetchCmeAnalyses } from '@/scene/donki-feeds';
+import { DONKI_CACHE_TTL_MS, fetchCmeAnalyses, type DonkiCme } from '@/scene/donki-feeds';
 import { buildLiveScene, type LiveScene } from '@/scene/live-cmes';
 
 export interface LiveCmesState {
+  observations: DonkiCme[] | null;
   scene: LiveScene | null;
   loading: boolean;
   error: string | null;
@@ -50,6 +52,7 @@ function windowLabelOf(startYmd: string, endYmd: string): string {
 
 export function useLiveCmes(): LiveCmesState {
   const [state, setState] = useState<LiveCmesState>({
+    observations: null,
     scene: null,
     loading: true,
     error: null,
@@ -73,6 +76,7 @@ export function useLiveCmes(): LiveCmesState {
         if (cancelled) return;
         const scene = list ? buildLiveScene(list, nowUnix, windowStartUnix) : null;
         setState({
+          observations: list,
           scene,
           loading: false,
           error: list ? null : 'DONKI unreachable',
@@ -81,7 +85,13 @@ export function useLiveCmes(): LiveCmesState {
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
-        setState((prev) => ({ ...prev, loading: false, error: message }));
+        setState({
+          observations: null,
+          scene: null,
+          loading: false,
+          error: message,
+          windowLabel: windowLabelOf(startYmd, endYmd),
+        });
       }
     }
 

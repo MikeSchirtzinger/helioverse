@@ -724,6 +724,14 @@ button, input {
   box-shadow: 0 0 8px currentColor;
 }
 
+/* PROVENANCE: an empty dashed marker means a real DONKI observation exists,
+   but required reconstruction fields are unavailable so no 3D front is drawn. */
+.hv-event-dot--withheld {
+  border: 1px dashed var(--hv-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
 .hv-event-name {
   flex: 1 1 auto;
   font-weight: 800;

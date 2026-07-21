@@ -8,7 +8,7 @@
  * - everything else is an immutable/static Pages asset.
  */
 
-const VERSION = '2026.07.11';
+const VERSION = '2026.07.21';
 const UPSTREAM_TIMEOUT_MS = 25_000;
 
 const SECURITY_HEADERS = {

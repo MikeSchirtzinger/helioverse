@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { DonkiCme } from './donki-feeds';
-import { buildLiveScene } from './live-cmes';
+import { buildLiveCmeMilestones, buildLiveScene, cmeKinematicsIssues } from './live-cmes';
 
 const DAY_S = 86_400;
 
-function cme(index: number, startUnix: number): DonkiCme {
+function cme(index: number, startUnix: number, overrides: Partial<DonkiCme> = {}): DonkiCme {
   return {
     activityID: `2026-07-10T00:00:00-CME-${String(index).padStart(3, '0')}`,
     startTime: new Date(startUnix * 1000).toISOString(),
@@ -34,6 +34,7 @@ function cme(index: number, startUnix: number): DonkiCme {
     estMass_kg: 1e12,
     estIons: 6e38,
     link: 'https://api.nasa.gov/DONKI/CME',
+    ...overrides,
   };
 }
 
@@ -66,5 +67,40 @@ describe('live CME display domain', () => {
     expect(scene?.milestones.map((milestone) => milestone.eventId)).toEqual(
       expect.arrayContaining(departed.map((event) => event.activityID)),
     );
+  });
+
+  it('keeps an incomplete live observation in the ledger without inventing a 3D front', () => {
+    const now = Date.parse('2026-07-21T07:00:00Z') / 1000;
+    const complete = cme(1, now - 2 * 3600);
+    const incomplete = cme(2, now - 3600, { apexLon_deg: null });
+    const scene = buildLiveScene([complete, incomplete], now, now - 7 * DAY_S);
+
+    expect(cmeKinematicsIssues(incomplete)).toEqual(['apex longitude']);
+    expect(scene).not.toBeNull();
+    expect(scene?.totalDetected).toBe(2);
+    expect(scene?.views).toHaveLength(1);
+    expect(scene?.views[0]?.donki.activityID).toBe(complete.activityID);
+    expect(scene?.milestones).toEqual(expect.arrayContaining([
+      expect.objectContaining({ eventId: incomplete.activityID, kind: 'cme' }),
+    ]));
+    expect(scene?.milestones.find((milestone) => milestone.eventId === incomplete.activityID)?.detail)
+      .toContain('3D front withheld: DONKI has not supplied apex longitude.');
+  });
+
+  it('builds the real observation ledger even when no record is renderable', () => {
+    const now = Date.parse('2026-07-21T07:00:00Z') / 1000;
+    const incomplete = cme(3, now - 3600, {
+      apexLon_deg: null,
+      enlilShockIso: '2026-07-23T07:00:00Z',
+      hasEnlilRun: true,
+      earthImpactClassification: 'glancing',
+      isEarthDirected: true,
+    });
+
+    expect(buildLiveScene([incomplete], now, now - 7 * DAY_S)).toBeNull();
+    expect(buildLiveCmeMilestones([incomplete])).toEqual([
+      expect.objectContaining({ eventId: incomplete.activityID, kind: 'cme' }),
+      expect.objectContaining({ eventId: incomplete.activityID, kind: 'predicted', label: 'Glancing Earth ETA' }),
+    ]);
   });
 });

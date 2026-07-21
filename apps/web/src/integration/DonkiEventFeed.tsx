@@ -14,7 +14,7 @@
  * Honest states:
  *   - loading spinner while first fetch is in-flight
  *   - empty message: "No DONKI events in last 30 days"
- *   - error message when all three feeds failed
+ *   - degradation message when any requested feed failed
  *   - individual rows clearly sourced as "DONKI / live"
  *
  * Styling uses existing --hv-* CSS custom properties + inline styles.
@@ -218,6 +218,7 @@ export function DonkiEventFeed({
   ].sort((a, b) => b.timeMs - a.timeMs); // newest first
 
   const idMap = buildIdMap(rows);
+  const feedStateColor = loading ? 'var(--hv-muted)' : error ? '#f6d365' : '#79e6a3';
 
   const headerStyle: CSSProperties = {
     display: 'flex',
@@ -248,8 +249,8 @@ export function DonkiEventFeed({
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: '#79e6a3',
-            boxShadow: '0 0 5px #79e6a3',
+            background: feedStateColor,
+            boxShadow: error || loading ? 'none' : `0 0 5px ${feedStateColor}`,
             flexShrink: 0,
           }}
           aria-hidden="true"
@@ -266,9 +267,9 @@ export function DonkiEventFeed({
         </div>
       )}
 
-      {!loading && error && flares === null && ips === null && gst === null && (
-        <div style={{ padding: '18px 12px', color: '#f6d365', fontSize: 12 }}>
-          DONKI feed unavailable: {error}
+      {!loading && error && (
+        <div role="status" style={{ padding: '12px', color: '#f6d365', fontSize: 12 }}>
+          DONKI feed degraded: {error}
         </div>
       )}
 

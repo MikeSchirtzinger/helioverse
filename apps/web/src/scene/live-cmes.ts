@@ -61,7 +61,7 @@ export interface LiveCmeView {
 
 /** Everything the console shell needs to drive the scene + scrubber in live mode. */
 export interface LiveScene {
-  /** Every renderable DONKI CME in the query window, for the complete ledger. */
+  /** Every DONKI CME with enough measured kinematics for a 3D/modelled front. */
   views: LiveCmeView[];
   /** Salience-capped subset drawn concurrently so the 3D field stays legible. */
   renderedViews: LiveCmeView[];
@@ -75,7 +75,7 @@ export interface LiveScene {
   timelineAnchorId: string;
   /** The timeline anchor's kinematics; independent of the rendered-front cap. */
   timelineAnchorEvent: CmeEventData;
-  /** CMEs detected in the window before the legibility cap. */
+  /** Every observed DONKI CME in the window, including incomplete analyses. */
   totalDetected: number;
   /** CMEs actually drawn (after the cap). */
   shown: number;
@@ -128,13 +128,39 @@ function cmeLabel(speed: number, earthDirected: boolean): string {
 }
 
 /**
+ * Fields required before an observed DONKI record may become a 3D/modelled
+ * front. The observation itself remains valid and belongs in the live ledger
+ * even when one of these reconstruction fields is unavailable.
+ */
+export function cmeKinematicsIssues(cme: DonkiCme): string[] {
+  const issues: string[] = [];
+  if (!Number.isFinite(cme.startUnix)) issues.push('launch time');
+  if (cme.speed_kms == null || cme.speed_kms <= 0) issues.push('speed');
+  if (cme.halfAngle_deg == null || cme.halfAngle_deg <= 0) issues.push('angular width');
+  if (cme.apexLon_deg == null) issues.push('apex longitude');
+  if (cme.apexLat_deg == null) issues.push('apex latitude');
+  return issues;
+}
+
+/** Label sourced only from fields present in the DONKI observation/model run. */
+export function liveCmeObservationLabel(cme: DonkiCme): string {
+  const speed = cme.speed_kms != null && cme.speed_kms > 0
+    ? `${Math.round(cme.speed_kms)} km/s`
+    : 'CME observed';
+  return `${speed}${cme.isEarthDirected ? ' →Earth' : ''}`;
+}
+
+/**
  * Convert one DONKI CME into a renderable view, or null when it lacks the
  * kinematics needed to place + propagate a front (no speed, or no direction).
  */
 export function donkiCmeToView(cme: DonkiCme): LiveCmeView | null {
-  if (cme.speed_kms == null || cme.speed_kms <= 0) return null;
-  if (cme.halfAngle_deg == null || cme.halfAngle_deg <= 0) return null;
-  if (cme.apexLon_deg == null || cme.apexLat_deg == null) return null;
+  if (cmeKinematicsIssues(cme).length > 0) return null;
+
+  // Narrowed by cmeKinematicsIssues above.
+  if (cme.speed_kms == null || cme.halfAngle_deg == null || cme.apexLon_deg == null || cme.apexLat_deg == null) {
+    return null;
+  }
 
   const halfAngle = cme.halfAngle_deg;
   const coneHits = coneHitsEarth(cme.apexLon_deg, cme.apexLat_deg, halfAngle);
@@ -193,33 +219,50 @@ function pickPrimary(views: LiveCmeView[], nowUnix: number): LiveCmeView | null 
   return [...views].sort((a, b) => b.salience - a.salience)[0] ?? null;
 }
 
-/** Per-CME scrubber ticks: a launch tick, plus a predicted-arrival tick when Enlil has one. */
-function milestonesFor(views: LiveCmeView[]): TimeBarMilestone[] {
+/**
+ * Build the live observation ledger independently of 3D renderability.
+ *
+ * PROVENANCE: launch rows come directly from NASA DONKI CME records. Earth
+ * arrival rows come directly from the record's WSA-Enlil model output. Missing
+ * geometry is stated explicitly; it is never replaced with invented values.
+ */
+export function buildLiveCmeMilestones(observations: readonly DonkiCme[]): TimeBarMilestone[] {
   const out: TimeBarMilestone[] = [];
-  for (const v of views) {
-    const e = v.canvas.event;
+  for (const cme of observations) {
+    const launchMs = Date.parse(cme.startTime);
+    if (!Number.isFinite(launchMs)) continue;
+    const issues = cmeKinematicsIssues(cme);
+    const speed = cme.speed_kms != null && cme.speed_kms > 0
+      ? `${Math.round(cme.speed_kms)} km/s CME`
+      : 'CME observed';
+    const modelSummary = !cme.hasEnlilRun
+      ? 'No WSA-Enlil run is available.'
+      : cme.isEarthDirected
+        ? 'WSA-Enlil supplies an Earth shock forecast.'
+        : 'WSA-Enlil supplies no Earth shock ETA.';
     out.push({
-      id: `${e.id}-cme`,
-      eventId: e.id,
-      label: v.canvas.label,
-      timeIso: isoOf(e.liftoff_unix),
+      id: `${cme.activityID}-cme`,
+      eventId: cme.activityID,
+      label: liveCmeObservationLabel(cme),
+      timeIso: new Date(launchMs).toISOString().replace('.000Z', 'Z'),
       kind: 'cme',
-      detail: `${v.donki.speed_kms} km/s CME${v.donki.activeRegion ? ` from AR ${v.donki.activeRegion}` : ''}${!v.donki.hasEnlilRun ? ' — no WSA-Enlil run available.' : v.earthDirected ? ' — WSA-Enlil models an Earth impact.' : ' — WSA-Enlil does not model an Earth impact.'}`,
+      detail: `${speed}${cme.activeRegion ? ` from AR ${cme.activeRegion}` : ''}. ${modelSummary}${issues.length ? ` 3D front withheld: DONKI has not supplied ${issues.join(', ')}.` : ''}`,
     });
-    if (e.arrivalWindow && v.arrivalIso) {
-      const kpRange = v.donki.predictedKpRange;
+
+    if (cme.enlilShockIso && Number.isFinite(Date.parse(cme.enlilShockIso))) {
+      const kpRange = cme.predictedKpRange;
       const possibleKp = kpRange
         ? ` · possible Kp ${kpRange.min === kpRange.max ? kpRange.max : `${kpRange.min}–${kpRange.max}`} across model scenarios`
         : '';
       out.push({
-        id: `${e.id}-eta`,
-        eventId: e.id,
-        label: v.donki.earthImpactClassification === 'glancing'
+        id: `${cme.activityID}-eta`,
+        eventId: cme.activityID,
+        label: cme.earthImpactClassification === 'glancing'
           ? 'Glancing Earth ETA'
-          : v.donki.earthImpactClassification === 'minor'
+          : cme.earthImpactClassification === 'minor'
             ? 'Minor-impact ETA'
             : 'Earth ETA',
-        timeIso: v.arrivalIso,
+        timeIso: cme.enlilShockIso,
         kind: 'predicted',
         detail: `WSA-Enlil modelled shock arrival${possibleKp}.`,
       });
@@ -244,20 +287,22 @@ export function buildLiveScene(list: DonkiCme[], nowUnix: number, windowStartUni
   if (all.length === 0) return null;
 
   const views = [...all].sort((a, b) => b.salience - a.salience);
-  const totalDetected = views.length;
-  // The complete 30-day list stays in `views` for the ledger. The 3D layer is
-  // an Earth-weather operational view, so it draws only fronts physically in
-  // flight between launch and 1.2 AU at wall-clock now. Departed events do not
-  // linger as a decorative ring around the edge of the solar system.
+  const totalDetected = list.length;
+  // The observation ledger retains every DONKI record. The 3D layer is an
+  // Earth-weather operational view, so it draws only sufficiently reconstructed
+  // fronts physically in flight between launch and 1.2 AU at wall-clock now.
+  // Departed events do not linger as a decorative ring around the system edge.
   const renderedViews = views
     .filter((view) => hasErupted(view.canvas.event, nowUnix))
     .filter((view) => cmeFrontRadiusKm(view.canvas.event, nowUnix) / AU_KM <= DISPLAY_DOMAIN_AU)
     .slice(0, MAX_RENDERED);
 
-  const liftoffs = views.map((v) => v.canvas.event.liftoff_unix);
-  const etas = views
-    .map((v) => v.canvas.event.arrivalWindow?.eta)
-    .filter((t): t is number => typeof t === 'number');
+  const liftoffs = list
+    .map((cme) => cme.startUnix)
+    .filter((time): time is number => Number.isFinite(time));
+  const etas = list
+    .map((cme) => cme.enlilShockIso == null ? Number.NaN : Date.parse(cme.enlilShockIso) / 1000)
+    .filter((time): time is number => Number.isFinite(time));
 
   const earliestLiftoff = Math.min(...liftoffs);
   const latestEta = etas.length ? Math.max(...etas) : Math.max(...liftoffs) + 3 * 86400;
@@ -285,9 +330,9 @@ export function buildLiveScene(list: DonkiCme[], nowUnix: number, windowStartUni
     windowEndIso: isoOf(windowEnd),
     defaultClockIso: isoOf(nowUnix),
     nowIso: isoOf(nowUnix),
-    // The monitor timeline is a ledger, not just a legend for the four fronts
-    // currently cheap enough to draw. Keep every renderable event selectable.
-    milestones: milestonesFor(views),
+    // The monitor timeline is an observation ledger, not just a legend for the
+    // fronts that have enough kinematics to draw.
+    milestones: buildLiveCmeMilestones(list),
   };
 }
 

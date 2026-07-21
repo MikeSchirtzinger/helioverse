@@ -72,7 +72,22 @@ export function useDonkiFeeds(): DonkiFeedsState {
           fetchGst(startDate, endDate),
         ]);
         if (cancelled) return;
-        setState({ cmes, flares, ips, gst, loading: false, error: null });
+        const unavailable = [
+          cmes == null ? 'CME' : null,
+          flares == null ? 'FLR' : null,
+          ips == null ? 'IPS' : null,
+          gst == null ? 'GST' : null,
+        ].filter((feed): feed is string => feed != null);
+        setState({
+          cmes,
+          flares,
+          ips,
+          gst,
+          loading: false,
+          error: unavailable.length
+            ? `NASA DONKI ${unavailable.join(', ')} ${unavailable.length === 1 ? 'feed is' : 'feeds are'} unavailable.`
+            : null,
+        });
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);

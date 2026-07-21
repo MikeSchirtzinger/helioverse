@@ -6,8 +6,13 @@
  */
 import { formatUtc } from './format';
 import { JUNE_2026_STORM, cmeKineticEnergyJ, type StormCme, type StormFlare } from './storm-scenario';
-import { liveCmeKineticEnergyJ, type LiveCmeView } from '@/scene/live-cmes';
-import type { DonkiFlare } from '@/scene/donki-feeds';
+import {
+  cmeKinematicsIssues,
+  liveCmeKineticEnergyJ,
+  liveCmeObservationLabel,
+  type LiveCmeView,
+} from '@/scene/live-cmes';
+import type { DonkiCme, DonkiFlare } from '@/scene/donki-feeds';
 import { EruptionSnapshot } from './EruptionSnapshot';
 
 const isoOf = (unix: number): string => new Date(unix * 1000).toISOString().replace('.000Z', 'Z');
@@ -38,6 +43,26 @@ function disturbanceWindow(view: LiveCmeView): string {
   const durationHours = view.donki.enlilDurationH;
   if (!Number.isFinite(start) || durationHours == null || durationHours <= 0) return formatUtc(view.arrivalIso);
   return `${formatUtc(view.arrivalIso)} → ${formatUtc(new Date(start + durationHours * 3_600_000).toISOString())}`;
+}
+
+function observedEarthPathLabel(cme: DonkiCme): string {
+  switch (cme.earthImpactClassification) {
+    case 'direct': return 'direct Earth shock forecast';
+    case 'glancing': return 'glancing Earth shock forecast';
+    case 'minor': return 'minor Earth impact forecast';
+    case 'none': return 'no Earth shock ETA in this run';
+    case 'unavailable': return 'WSA-Enlil run unavailable';
+  }
+}
+
+function observedApexLabel(cme: DonkiCme): string {
+  const lat = cme.apexLat_deg;
+  const lon = cme.apexLon_deg;
+  if (lat == null && lon == null) return 'unavailable';
+  const parts: string[] = [];
+  if (lat != null) parts.push(`${lat >= 0 ? 'N' : 'S'}${Math.abs(Math.round(lat))}°`);
+  if (lon != null) parts.push(`${lon >= 0 ? 'W' : 'E'}${Math.abs(Math.round(lon))}°`);
+  return parts.join(' · ');
 }
 
 export function StormEventsList({
@@ -206,6 +231,7 @@ export function LiveFlareDetail({ flare }: { flare: DonkiFlare }) {
 
 /** Live DONKI CME list for the right rail. */
 export function LiveCmeList({
+  observations,
   views,
   selectedId,
   primaryId,
@@ -214,6 +240,7 @@ export function LiveCmeList({
   windowLabel,
   onSelect,
 }: {
+  observations: readonly DonkiCme[];
   views: LiveCmeView[];
   selectedId: string | null;
   primaryId: string | null;
@@ -222,34 +249,106 @@ export function LiveCmeList({
   windowLabel: string | null;
   onSelect: (id: string) => void;
 }) {
+  const viewById = new Map(views.map((view) => [view.donki.activityID, view]));
+  const newestFirst = [...observations].sort((a, b) => b.startUnix - a.startUnix);
   return (
     <div className="hv-events-list" aria-label="Live CMEs">
       <p className="hv-eyebrow">
-        Live CMEs · {shown}
-        {totalDetected > shown ? ` of ${totalDetected}` : ''}
+        Observed CMEs · {totalDetected}
+        {totalDetected > 0 ? ` · ${shown} drawn` : ''}
         {windowLabel ? ` · ${windowLabel}` : ''}
       </p>
       <ul>
-        {views.map((v) => {
-          const e = v.canvas.event;
+        {newestFirst.map((observation) => {
+          const view = viewById.get(observation.activityID);
+          const issues = cmeKinematicsIssues(observation);
+          const launchIso = Number.isFinite(observation.startUnix)
+            ? isoOf(observation.startUnix)
+            : observation.startTime;
           return (
-            <li key={e.id}>
+            <li key={observation.activityID}>
               <button
                 type="button"
-                className={`hv-event-row hv-event-row--cme${selectedId === e.id ? ' is-selected' : ''}`}
-                onClick={() => onSelect(e.id)}
+                className={`hv-event-row hv-event-row--cme${selectedId === observation.activityID ? ' is-selected' : ''}`}
+                onClick={() => onSelect(observation.activityID)}
+                title={issues.length ? `Observed by NASA DONKI; 3D front withheld because ${issues.join(', ')} is unavailable.` : 'Observed by NASA DONKI; measured kinematics are sufficient for a modelled 3D front.'}
               >
-                <span className="hv-event-dot" style={{ background: hex(v.canvas.color) }} aria-hidden="true" />
+                <span
+                  className={`hv-event-dot${view ? '' : ' hv-event-dot--withheld'}`}
+                  style={view ? { background: hex(view.canvas.color) } : undefined}
+                  aria-hidden="true"
+                />
                 <span className="hv-event-name">
-                  {v.canvas.label}
-                  {e.id === primaryId ? ' · primary' : ''}
+                  {liveCmeObservationLabel(observation)}
+                  {observation.activityID === primaryId ? ' · primary' : ''}
+                  {!view ? ' · 3D withheld' : ''}
                 </span>
-                <span className="hv-event-meta">{formatUtc(isoOf(e.liftoff_unix))}</span>
+                <span className="hv-event-meta">{formatUtc(launchIso)}</span>
               </button>
             </li>
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * A real DONKI observation that cannot honestly be promoted to a 3D front.
+ * Every available source field remains visible; missing geometry stays missing.
+ */
+export function LiveCmeObservationDetail({ cme }: { cme: DonkiCme }) {
+  const issues = cmeKinematicsIssues(cme);
+  const label = liveCmeObservationLabel(cme);
+  const eventIso = cme.startTime;
+  const hasEventTime = Number.isFinite(Date.parse(eventIso));
+  const possibleKp = cme.predictedKpRange
+    ? cme.predictedKpRange.min === cme.predictedKpRange.max
+      ? `${cme.predictedKpRange.max} · model scenario`
+      : `${cme.predictedKpRange.min}–${cme.predictedKpRange.max} · model scenarios`
+    : '—';
+
+  return (
+    <div className="hv-event-detail" aria-label="Observed CME details">
+      <header>
+        <span className="hv-event-dot hv-event-dot--withheld" aria-hidden="true" />
+        <h3>{label}</h3>
+      </header>
+      {hasEventTime ? (
+        <EruptionSnapshot dateIso={eventIso} label={label} kind="cme" />
+      ) : (
+        <p className="hv-detail-note" role="status">
+          DONKI did not provide a usable launch time, so verified event imagery cannot be requested.
+        </p>
+      )}
+      <dl className="hv-detail-grid">
+        <Detail term="Launch" value={hasEventTime ? formatUtc(eventIso) : '—'} />
+        <Detail term="Speed (DONKI)" value={cme.speed_kms == null ? '—' : `${Math.round(cme.speed_kms)} km/s`} />
+        <Detail term="Angular width" value={cme.halfAngle_deg == null ? '—' : `${(cme.halfAngle_deg * 2).toFixed(0)}°`} />
+        <Detail term="Apex" value={observedApexLabel(cme)} />
+        <Detail term="Source location" value={cme.sourceLocation.trim() || '—'} />
+        <Detail term="Active region" value={cme.activeRegion == null ? '—' : `AR ${cme.activeRegion}`} />
+        {cme.speedClass ? <Detail term="Speed class" value={speedClassLabel(cme.speedClass)} /> : null}
+        <Detail term="Earth path (modelled)" value={observedEarthPathLabel(cme)} />
+        <Detail term="Possible Kp" value={possibleKp} />
+        <Detail term="Predicted arrival" value={cme.enlilShockIso ? formatUtc(cme.enlilShockIso) : '—'} />
+        <Detail term="3D front" value={issues.length ? `withheld · missing ${issues.join(', ')}` : 'kinematics complete'} />
+      </dl>
+      <p className="hv-detail-note">
+        This is a current NASA DONKI observation. The event stays in the live ledger, but no 3D front is drawn because
+        {issues.length ? ` DONKI has not supplied ${issues.join(', ')}.` : ' it is outside the current 3D display selection.'}
+        {' '}Helioverse does not invent the missing reconstruction geometry.
+      </p>
+      {cme.link ? (
+        <a className="hv-detail-link" href={cme.link} target="_blank" rel="noreferrer">
+          → open DONKI record
+        </a>
+      ) : null}
+      {cme.enlilRunLink ? (
+        <a className="hv-detail-link" href={cme.enlilRunLink} target="_blank" rel="noreferrer">
+          → open WSA-Enlil model run
+        </a>
+      ) : null}
     </div>
   );
 }

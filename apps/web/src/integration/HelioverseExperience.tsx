@@ -19,12 +19,20 @@ import {
 } from '@/scene/canvas-contract';
 import { CanvasTimeBar, type TimeBarMilestone } from '@/scene/CanvasTimeBar';
 import { createSceneBundle, type SceneFoundation } from '@/scene/scene-data';
-import type { DonkiFlare } from '@/scene/donki-feeds';
+import type { DonkiCme, DonkiFlare } from '@/scene/donki-feeds';
 import type { CmeEventData } from '@/scene/types';
-import type { LiveCmeView, LiveScene } from '@/scene/live-cmes';
+import { buildLiveCmeMilestones, type LiveCmeView, type LiveScene } from '@/scene/live-cmes';
 import { DonkiEventFeed } from './DonkiEventFeed';
 import { SceneStage, type ImpactSummary } from './SceneStage';
-import { CmeDetail, FlareDetail, LiveCmeDetail, LiveCmeList, LiveFlareDetail, StormEventsList } from './scene-events';
+import {
+  CmeDetail,
+  FlareDetail,
+  LiveCmeDetail,
+  LiveCmeList,
+  LiveCmeObservationDetail,
+  LiveFlareDetail,
+  StormEventsList,
+} from './scene-events';
 import { JUNE_2026_STORM, primaryCme as replayPrimaryCme } from './storm-scenario';
 
 type SceneMode = 'live' | 'replay';
@@ -36,6 +44,8 @@ const MONITOR_VIEWS: ReadonlyArray<{ step: CausalStepId; short: string; label: s
   { step: 'l1', short: 'L1', label: 'L1 / Earth' },
   { step: 'aurora', short: 'OV', label: 'Aurora' },
 ];
+
+const EMPTY_DONKI_CMES: readonly DonkiCme[] = [];
 
 const isoOf = (unix: number): string => new Date(unix * 1000).toISOString().replace('.000Z', 'Z');
 const nowIso = (): string => new Date().toISOString().replace('.000Z', 'Z');
@@ -159,6 +169,7 @@ export function HelioverseExperience() {
   const live = useLiveCmes();
   const donki = useDonkiFeeds();
   const liveScene = live.scene;
+  const liveObservations = live.observations ?? EMPTY_DONKI_CMES;
 
   // A live clock follows wall time until the user deliberately scrubs away.
   useEffect(() => {
@@ -246,6 +257,9 @@ export function HelioverseExperience() {
     ? (liveScene?.primaryEvent ?? null)
     : replayPrimaryCme(scenario);
   const selectedLiveView = liveScene?.views.find((view) => view.canvas.event.id === selectedId) ?? null;
+  const selectedLiveCme = sceneMode === 'live'
+    ? liveObservations.find((cme) => cme.activityID === selectedId) ?? null
+    : null;
   const selectedLiveFlare = sceneMode === 'live'
     ? donki.flares?.find((flare) => flare.id === selectedId) ?? null
     : null;
@@ -280,12 +294,16 @@ export function HelioverseExperience() {
       }];
     });
   }, [donki.flares, windowEndIso, windowStartIso]);
+  const liveCmeMilestones = useMemo(
+    () => buildLiveCmeMilestones(liveObservations),
+    [liveObservations],
+  );
   const milestones = sceneMode === 'live'
-    ? [...(liveScene?.milestones ?? []), ...liveFlareMilestones]
+    ? [...liveCmeMilestones, ...liveFlareMilestones]
       .sort((a, b) => Date.parse(a.timeIso) - Date.parse(b.timeIso))
     : scenario.milestones;
   const timelineEvent = sceneMode === 'live'
-    ? selectedLiveFlare
+    ? selectedLiveFlare || (selectedLiveCme && !selectedLiveView)
       ? null
       : (selectedLiveView?.canvas.event ?? primaryEvent ?? cmes[0]?.event ?? liveScene?.timelineAnchorEvent ?? null)
     : (selectedReplayTimelineCme ?? primaryEvent ?? cmes[0]?.event ?? null);
@@ -318,9 +336,9 @@ export function HelioverseExperience() {
     ? 'loading DONKI events'
     : live.error
       ? 'DONKI event feed unavailable'
-      : liveScene
-        ? `${liveScene.shown} of ${liveScene.totalDetected} CMEs drawn`
-        : 'quiet Sun · no renderable CME in 7 days';
+      : liveObservations.length > 0
+        ? `${liveScene?.shown ?? 0} of ${liveObservations.length} observed CMEs drawn${liveScene ? '' : ' · reconstruction incomplete'}`
+        : 'quiet Sun · no CME observed in 7 days';
   const statusLine = sceneMode === 'live'
     ? `LIVE EVENT LAYER · ${liveSceneState}`
     : `HISTORICAL REPLAY · ${scenario.name}`;
@@ -351,12 +369,19 @@ export function HelioverseExperience() {
     displayMenuRef.current?.removeAttribute('open');
     if (sceneMode === 'live') {
       const view = liveScene?.views.find((item) => item.canvas.event.id === id);
+      const observation = liveObservations.find((item) => item.activityID === id);
       const flare = donki.flares?.find((item) => item.id === id);
       if (view) {
         setSelectedTimeIso(timeOverride ?? isoOf(view.canvas.event.liftoff_unix));
         setFollowNow(false);
         setActiveStep('transit');
         setInteractionMode('follow-event');
+      } else if (observation) {
+        const observationTime = timeOverride ?? observation.startTime;
+        if (Number.isFinite(Date.parse(observationTime))) setSelectedTimeIso(observationTime);
+        setFollowNow(false);
+        setActiveStep('sun');
+        setInteractionMode('solar-focus');
       }
       if (flare) {
         const flareTime = timeOverride ?? flare.peakTime ?? flare.beginTime ?? flare.time;
@@ -634,7 +659,9 @@ export function HelioverseExperience() {
               selectedId={selectedId}
               onSelect={selectEvent}
               selectedLiveView={selectedLiveView}
+              selectedLiveCme={selectedLiveCme}
               selectedLiveFlare={selectedLiveFlare}
+              liveObservations={liveObservations}
               selectedReplayCme={selectedReplayCme}
               selectedReplayFlare={selectedReplayFlare}
               flares={donki.flares}
@@ -683,7 +710,9 @@ function EventsPanel({
   selectedId,
   onSelect,
   selectedLiveView,
+  selectedLiveCme,
   selectedLiveFlare,
+  liveObservations,
   selectedReplayCme,
   selectedReplayFlare,
   flares,
@@ -700,7 +729,9 @@ function EventsPanel({
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   selectedLiveView: LiveScene['views'][number] | null;
+  selectedLiveCme: DonkiCme | null;
   selectedLiveFlare: DonkiFlare | null;
+  liveObservations: readonly DonkiCme[];
   selectedReplayCme: (typeof JUNE_2026_STORM.cmes)[number] | null;
   selectedReplayFlare: (typeof JUNE_2026_STORM.flares)[number] | null;
   flares: Parameters<typeof DonkiEventFeed>[0]['flares'];
@@ -723,18 +754,27 @@ function EventsPanel({
             <button type="button" className="hx-event-back" onClick={() => onSelect(null)}>← All live events</button>
             <LiveFlareDetail flare={selectedLiveFlare} />
           </div>
-        ) : liveScene ? (
-          selectedLiveView ? (
-            <div className="hx-selected-event">
-              <button type="button" className="hx-event-back" onClick={() => onSelect(null)}>← All live events</button>
-              <LiveCmeDetail view={selectedLiveView} />
-            </div>
-          ) : (
-            <LiveCmeList views={liveScene.views} selectedId={selectedId} primaryId={liveScene.primaryId} totalDetected={liveScene.totalDetected} shown={liveScene.shown} windowLabel={liveWindowLabel} onSelect={(id) => onSelect(id)} />
-          )
+        ) : selectedLiveCme ? (
+          <div className="hx-selected-event">
+            <button type="button" className="hx-event-back" onClick={() => onSelect(null)}>← All live events</button>
+            {selectedLiveView
+              ? <LiveCmeDetail view={selectedLiveView} />
+              : <LiveCmeObservationDetail cme={selectedLiveCme} />}
+          </div>
+        ) : liveObservations.length > 0 ? (
+          <LiveCmeList
+            observations={liveObservations}
+            views={liveScene?.views ?? []}
+            selectedId={selectedId}
+            primaryId={liveScene?.primaryId ?? null}
+            totalDetected={liveObservations.length}
+            shown={liveScene?.shown ?? 0}
+            windowLabel={liveWindowLabel}
+            onSelect={(id) => onSelect(id)}
+          />
         ) : (
           <div className="hx-empty">
-            <strong>{liveLoading ? 'Fetching NASA DONKI…' : liveError ? 'DONKI events unavailable.' : 'No renderable CMEs in the live window.'}</strong>
+            <strong>{liveLoading ? 'Fetching NASA DONKI…' : liveError ? 'DONKI events unavailable.' : 'No CMEs observed in the live window.'}</strong>
             <span>{liveError ?? (liveLoading ? 'The scene stays empty until measured kinematics arrive.' : 'A quiet Sun is real data, not a missing demo.')}</span>
           </div>
         )
