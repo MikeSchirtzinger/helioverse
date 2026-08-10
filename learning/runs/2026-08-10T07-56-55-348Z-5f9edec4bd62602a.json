@@ -1,0 +1,14 @@
+{
+  "schema_version": "helioverse.training-run.v1",
+  "run_at": "2026-08-10T07:56:55.348Z",
+  "ledger_revision": "5f9edec4bd62602a",
+  "gate": {
+    "arrival": 16,
+    "kp": 8,
+    "required": 10,
+    "ready": false
+  },
+  "outcome": "blocked_by_data_gate",
+  "model_id": null,
+  "production_model_id": "wsa-enlil-dbm"
+}

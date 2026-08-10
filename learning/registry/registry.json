@@ -15,11 +15,11 @@
   "models": [],
   "last_run": {
     "schema_version": "helioverse.training-run.v1",
-    "run_at": "2026-08-03T08:28:39.985Z",
-    "ledger_revision": "a74279d0a42693d6",
+    "run_at": "2026-08-10T07:56:55.348Z",
+    "ledger_revision": "5f9edec4bd62602a",
     "gate": {
-      "arrival": 13,
-      "kp": 5,
+      "arrival": 16,
+      "kp": 8,
       "required": 10,
       "ready": false
     },
