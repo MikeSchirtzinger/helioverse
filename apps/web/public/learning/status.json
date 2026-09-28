@@ -1,9 +1,9 @@
 {
   "schema_version": "helioverse.learning-status.v1",
-  "generated_at": "2026-09-21T07:41:44.784Z",
-  "ledger_revision": "f7b38b1bddf10d9a",
+  "generated_at": "2026-09-28T07:46:45.499Z",
+  "ledger_revision": "3f60c9e5ffcdf914",
   "ledger": {
-    "events": 468,
+    "events": 492,
     "outcomes": 28
   },
   "gate": {
